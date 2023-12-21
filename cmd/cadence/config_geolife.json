@@ -1,0 +1,39 @@
+{
+  "top_level": {
+    "log": "DEBUG",
+    "db": "mysql",
+    "dbfile": "marathon:marathon@tcp(127.0.0.1:3306)/marathon?charset=utf8mb4&parseTime=True&loc=Local",
+    "time_format": "2006-01-02 15:04:05.000" ,
+    "seed": 12345 
+  },
+  "web_server": {
+    "port": 8082,
+    "host": "localhost"
+  },
+  "simulation": {
+    "start_time": 1200000000,
+    "end_time": 1340000000,
+    "dataset_name": "geolife",
+    "experiment_name": "broadcast_random_test_erase0",
+    "conditions_file": "conditions.json",
+    "logic": "broadcast", 
+    "logic_file": "../../pkg/logic/logic_config_geolife.json",
+    "messages_file": "../../../marathon-files/messages_geolife.json",
+    "messages_template": "messages_template.json",
+    "generator_script": "message_generator.py",
+    "message_generation_type":0, 
+    "min_buffer_size": 50,
+    "max_buffer_size": 50,
+    "min_message_size": 1.0,
+    "max_message_size": 1.0,
+    "time_step": 60.0,
+    "encounter_isolator": 60.0,
+    "N_encounters_split": 2
+  },
+  "cli":{
+    "lens": "geolife",
+    "path": "../../marathon-mobility-data/geolife",
+    "name": "geolife"
+  }
+}
+//shift - i+17

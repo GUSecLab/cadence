@@ -1,0 +1,44 @@
+[
+  {
+    "id" : "",
+    "sender" : -1,
+    "destination" : -1,
+    "type" : 10,
+    "time": 0,
+    "payload": "Hi ",
+    "shards": 0,
+    "shardid": 0,
+    "ms": false,
+    "ttl_hops": 20,
+    "ttl_time": 1000,
+    "size": 30
+  },
+  {
+    "id" : "",
+    "sender" : -1,
+    "destination" : -1,
+    "type" : 10,
+    "time": 0,
+    "payload": "Hello to ,",
+    "shards": 1,
+    "shardid": 0,
+    "ms": true,
+    "ttl_hops": 20,
+    "ttl_time": 1000,
+    "size": 20
+  },
+  {
+    "id" : "",
+    "sender" : -1,
+    "destination" : -1,
+    "type" : 10,
+    "time": 0,
+    "payload": ". How are you?",
+    "shards": 1,
+    "shardid": 1,
+    "ms": false,
+    "ttl_hops": 20,
+    "ttl_time": 1000,
+    "size": 20
+  }
+]

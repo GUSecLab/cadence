@@ -1,0 +1,179 @@
+{{template "header"}}
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <h3 id="familyLogicKey">Metrics of Finished Experiments</h3>
+    <!-- Dropdown for selecting the dataset -->
+    <label for="datasetSelect">Select Dataset & Distance:</label>
+    <br>
+    <select id="datasetSelect"></select>
+
+    <!-- Dropdown for selecting the metric -->
+    <br>
+    <label for="metricSelect">Select Metric:</label>
+    <br>
+    <select id="metricSelect"></select>
+
+    <!-- Checkboxes for selecting categories dynamically generated from the data -->
+    <br>
+    <label>Select Logics:</label>
+    <br>
+    <div id="categoryCheckboxes"></div>
+
+    <!-- Button to render the box-and-whisker graph -->
+    <button onclick="renderBoxPlot()">Render Box Plot</button>
+
+    <div id="boxPlot"></div> <!-- Element for the Box Plot -->
+
+    <script>
+        // Your JSON input
+        //var inputJSON=JSON.parse('{\"hand_25\":[{\"broadcast\":[{\"ExperimentName\":\"broadcast_hand_correct4\",\"LatSec\":2448,\"LatHop\":1.2,\"MaxBuf\":6,\"MaxBand\":6,\"NetLoad\":10,\"Throughput\":0.8333333,\"NumMessages\":6,\"AvgCopiesMessages\":2.6666666666666665,\"PeakLoad\":16,\"AverageLoad\":13.373134328358208},{\"ExperimentName\":\"broadcast_hand_correct5\",\"LatSec\":2448,\"LatHop\":1.2,\"MaxBuf\":6,\"MaxBand\":6,\"NetLoad\":10,\"Throughput\":0.4,\"NumMessages\":6,\"AvgCopiesMessages\":2.6666666666666665,\"PeakLoad\":16,\"AverageLoad\":13.373134328358208},{\"ExperimentName\":\"broadcast_hand_correct6\",\"LatSec\":2448,\"LatHop\":1.2,\"MaxBuf\":6,\"MaxBand\":6,\"NetLoad\":10,\"Throughput\":0.1,\"NumMessages\":6,\"AvgCopiesMessages\":2.6666666666666665,\"PeakLoad\":16,\"AverageLoad\":13.373134328358208}]},{\"test\":[{\"ExperimentName\":\"broadcast_hand_correct4\",\"LatSec\":2448,\"LatHop\":1.2,\"MaxBuf\":6,\"MaxBand\":6,\"NetLoad\":10,\"Throughput\":0.8333333,\"NumMessages\":6,\"AvgCopiesMessages\":2.6666666666666665,\"PeakLoad\":16,\"AverageLoad\":13.373134328358208},{\"ExperimentName\":\"broadcast_hand_correct5\",\"LatSec\":2448,\"LatHop\":1.2,\"MaxBuf\":6,\"MaxBand\":6,\"NetLoad\":10,\"Throughput\":0.4,\"NumMessages\":6,\"AvgCopiesMessages\":2.6666666666666665,\"PeakLoad\":16,\"AverageLoad\":13.373134328358208},{\"ExperimentName\":\"broadcast_hand_correct6\",\"LatSec\":2448,\"LatHop\":1.2,\"MaxBuf\":6,\"MaxBand\":6,\"NetLoad\":10,\"Throughput\":0.1,\"NumMessages\":6,\"AvgCopiesMessages\":2.6666666666666665,\"PeakLoad\":16,\"AverageLoad\":13.373134328358208}]}]}')
+        var inputJSON = JSON.parse('{{ . }}');
+        // console.log(inputJSON)
+        var selectedDataset; // Variable to store the selected dataset
+
+        // Function to populate the dataset dropdown
+        function populateDatasetDropdown() {
+            var datasetSelect = document.getElementById("datasetSelect");
+            for (var key in inputJSON) {
+                
+                if (inputJSON.hasOwnProperty(key)) {
+                    var option = document.createElement("option");
+                    option.value = key;
+                    option.text = key;
+                    datasetSelect.appendChild(option);
+                }
+            }
+        }
+
+        // Function to populate the metric dropdown
+        function populateMetricDropdown() {
+            var metricSelect = document.getElementById("metricSelect");
+            metricSelect.innerHTML = "";
+
+            for (var logic in inputJSON[selectedDataset]) {
+                // console.log(logic)
+                for (var m in inputJSON[selectedDataset][logic][0]){
+                        metric=m
+                        if (metric !== "ExperimentName") {
+                            var option = document.createElement("option");
+                            option.value = metric;
+                            option.text = metric;
+                            metricSelect.appendChild(option);
+                        }
+                    }
+                    return
+                }
+            
+        }
+
+        // Function to dynamically generate checkboxes for categories
+        function generateCategoryCheckboxes() {
+            var categoryCheckboxes = document.getElementById("categoryCheckboxes");
+            categoryCheckboxes.innerHTML = "";
+
+            var allCategories = new Set();
+
+            for (var logic in inputJSON[selectedDataset]) {
+                
+                    allCategories.add(logic);
+                }
+            
+            
+            
+
+            allCategories.forEach(function (category) {
+                var checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.name = "categoryCheckbox";
+                checkbox.value = category;
+                checkbox.checked = true; // Default to checked
+
+                var label = document.createElement("label");
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(category));
+
+                categoryCheckboxes.appendChild(label);
+            });
+        }
+
+        // Function to render the box-and-whisker graph based on selected dataset, metric, and categories
+        function renderBoxPlot() {
+            var metricSelect = document.getElementById("metricSelect");
+            var selectedMetric = metricSelect.value;
+
+            var checkboxes = document.getElementsByName("categoryCheckbox");
+            var selectedLogics = [];
+            checkboxes.forEach(function (checkbox) {
+                if (checkbox.checked) {
+                    selectedLogics.push(checkbox.value);
+                }
+            });
+            // Extract and filter values based on selected dataset, metric, and categories
+            var data = [];
+            var categoryLabels = Array.from(selectedLogics); // Use selected categories as labels for x-axis
+
+            for (var logic in inputJSON[selectedDataset]) {
+                if (!selectedLogics.includes(logic)) {
+                    continue
+                }
+                var categoryData = [];
+                for (var i in inputJSON[selectedDataset][logic]){
+                    current_data=inputJSON[selectedDataset][logic][i]
+                    if (current_data.hasOwnProperty(selectedMetric)) {
+                        categoryData.push(current_data[selectedMetric]);
+                         
+                        }
+                    }
+
+                        var trace = {
+                            type: 'box',
+                            y: categoryData,
+                            name: logic
+                        };
+                        data.push(trace);
+                    }
+                
+            
+
+            var layout = {
+                xaxis: {
+                    title: 'Logics',
+                    tickvals: categoryLabels, // Use selected categories as tick values
+                    ticktext: categoryLabels // Use selected categories as tick text
+                },
+                yaxis: {
+                    title: selectedMetric
+
+                }
+            };
+
+            var firstCapitalKey = Object.keys(inputJSON).find(function (key) {
+                return /[A-Z]/.test(key.charAt(0));
+            });
+
+            if (firstCapitalKey) {
+                document.getElementById("familyLogicKey").textContent = firstCapitalKey;
+            }
+
+            // Plotly.newPlot renders the box and whisker plot in the 'boxPlot' div
+            Plotly.newPlot('boxPlot', data, layout);
+        }
+
+        // Update the metric dropdown and category checkboxes when the dataset changes
+        document.getElementById("datasetSelect").addEventListener("change", function () {
+            selectedDataset = this.value;
+            populateMetricDropdown();
+            generateCategoryCheckboxes();
+            renderBoxPlot();
+        });
+
+        // Populate the dataset dropdown, metric dropdown, and generate category checkboxes on page load
+        populateDatasetDropdown();
+        // Initialize selectedDataset with the first option value
+        selectedDataset = document.getElementById("datasetSelect").value;
+        populateMetricDropdown();
+        generateCategoryCheckboxes();
+        renderBoxPlot();
+    </script>
+{{template "footer"}}

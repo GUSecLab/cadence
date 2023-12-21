@@ -1,0 +1,60 @@
+{{template "header"}}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+<h3>Encounters by Node</h3>
+
+<ul>
+{{ range .Experiments }}
+<li><a href="/encounters?experiment={{ . }}">{{ . }}</a></li>
+{{end}}
+</ul>
+
+{{ if .ChosenExperiment }}
+
+<h3>Encounters by Node</h3>
+<div>
+    <canvas id="encountersByNodeChart"></canvas>
+</div>
+  
+  
+<script>
+  const ctx = document.getElementById('encountersByNodeChart');
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: [ {{ .Nodes }} ],
+      datasets: [{
+        label: '{{ .ChosenExperiment }}',
+        data: [ {{ .Counts }} ],
+        borderWidth: 1
+      }]
+    },
+    options: {
+      scales: {
+        y: {
+          display: true,
+          type: 'logarithmic',
+          beginAtZero: false,
+          title: {
+            text: 'Number of encounters',
+            display: true
+          }
+        },
+        x: {
+          display: true,
+          title: {
+            text: 'Node no.',
+            display: true
+          }
+        }
+      }
+    }
+  });
+</script>
+
+{{ end }}
+
+{{template "footer"}}

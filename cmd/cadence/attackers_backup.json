@@ -1,0 +1,10 @@
+[
+  {
+    "type" : "dropper",
+    "amount": 0.1
+  },
+  {
+    "type" : "flooder",
+    "amount": 0.1
+  }
+]

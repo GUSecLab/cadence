@@ -1,0 +1,13 @@
+go 1.19
+
+use ./cmd/cadence
+
+use ./cmd/gen-randomwalk-dataset
+
+use ./pkg/lens
+
+use ./pkg/logic
+
+use ./pkg/datamodel
+
+use ./pkg/device

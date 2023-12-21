@@ -1,0 +1,29 @@
+{
+  "conditions" : [
+    {
+      "name" : "distance200m",
+      "type" : "distance",
+      "params" : {
+        "dist" : 200.0
+      }
+    },
+    {
+      "name" : "probability50",
+      "type" : "probability",
+      "params" : {
+        "prob" : 1.0
+      }
+    },
+    {
+      "name" : "transition",
+      "type" : "whenhaveisawu",
+      "params" : {
+        "transition_time" : 600000.0
+      }
+    },
+    {
+      "name" : "updates",
+      "type" : "doYouHaveEnoughUpdates"
+    }
+  ]
+}

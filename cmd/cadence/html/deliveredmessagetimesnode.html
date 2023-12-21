@@ -1,0 +1,61 @@
+{{template "header"}}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+<h3>Messages Delivery Aggregation</h3>
+
+<ul>
+{{ range .Experiments }}
+<li><a href="/deliveredmessagetimesnode?experiment={{ . }}">{{ . }}</a></li>
+{{end}}
+</ul>
+
+{{ if .ChosenExperiment }}
+
+<h3>Messages Delivery Times</h3>
+<div>
+    <canvas id="delMessgageTimesChart"></canvas>
+</div>
+  
+  
+<script>
+  const ctx = document.getElementById('delMessgageTimesChart');
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: [ {{ .Times }} ],
+      datasets: [{
+        label: '{{ .ChosenExperiment }}',
+        data: [ {{ .Counts }} ],
+        borderWidth: 1
+      }]
+    },
+    options: {
+      scales: {
+        y: {
+          display: true,
+          
+          beginAtZero: true,
+          title: {
+            text: 'Amount of messages',
+            display: true
+          }
+        },
+        x: {
+          type: 'category',
+          display: true,
+          title: {
+            text: 'Times.',
+            display: true
+          }
+        }
+      }
+    }
+  });
+</script>
+
+{{ end }}
+
+{{template "footer"}}

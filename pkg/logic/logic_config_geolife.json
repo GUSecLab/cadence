@@ -1,0 +1,10 @@
+{
+    "logic": "broadcast",
+    "dataset_name": "geolife",
+    "underlyning_logic": "broadcast",
+    "profile_file": "profile_defs.json",
+    "randomwalk_transfer_probability": 0.5,
+    "randomwalk_delete_probability": 1,
+    "mixed_randomwalk_version": 1,
+    "organizer": 2
+} 

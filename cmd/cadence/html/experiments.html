@@ -1,0 +1,23 @@
+{{template "header"}}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+<h3>Available experiments</h3>
+
+<ul>
+{{ range . }}
+<li>
+    <b>{{ .ExperimentName }}</b><br/>
+    <ul>
+        <li>Dataset: {{ .DatasetName }}</li>
+        <li>Investigator: {{ .Investigator }}</li>
+        <li>Date Started: {{ .DateStarted.Time }} </li>
+        <li>Date Finished: {{ .DateFinished.Time }} </li>
+        <li>Distance Conditions: {{ .DistanceConditions }}</li>
+    </ul>
+</li>
+{{end}}
+</ul>
+
+{{template "footer"}}

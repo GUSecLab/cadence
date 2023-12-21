@@ -1,0 +1,60 @@
+{{template "header"}}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+<h3>Available datasets</h3>
+
+<ul>
+{{ range .Datasets }}
+<li><a href="/spansByNode?dataset={{ . }}">{{ . }}</a></li>
+{{end}}
+</ul>
+
+{{ if .ChosenDataset }}
+
+<h3>Timespans by Node</h3>
+<div>
+    <canvas id="numEventsByNodeChart"></canvas>
+</div>
+  
+  
+<script>
+  const ctx = document.getElementById('numEventsByNodeChart');
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: [ {{ .Nodes }} ],
+      datasets: [{
+        label: '{{ .ChosenDataset }}',
+        data: [ {{ .Spans }} ],
+        borderWidth: 1
+      }]
+    },
+    options: {
+      scales: {
+        y: {
+          display: true,
+          //type: 'logarithmic',
+          beginAtZero: false,
+          title: {
+            text: 'Timespan (UNIX Times)',
+            display: true
+          }
+        },
+        x: {
+          display: true,
+          title: {
+            text: 'Node no.',
+            display: true
+          }
+        }
+      }
+    }
+  });
+</script>
+
+{{ end }}
+
+{{template "footer"}}

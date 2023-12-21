@@ -1,0 +1,7 @@
+stops at 
+time="2023-01-24 21:20:03.590" level=info msg="simulating time 1200725789.000000"
+
+2023/01/24 16:22:26 /home/msherr/marathon-sim/cmd/cadence/prefetcher.go:63 SLOW SQL >= 200ms
+2023/01/24 16:22:26 /home/msherr/marathon-sim/cmd/cadence/prefetcher.go:63 SLOW SQL >= 200ms
+
+[60596.733ms] [rows:1] SELECT * FROM `events` WHERE dataset_name = 'geolife' and node = '91' and time >= 1200698861.000000 LIMIT 2048

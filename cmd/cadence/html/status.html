@@ -1,0 +1,34 @@
+{{template "header"}}
+
+<h2>Experiment Status</h2>
+
+
+<h3>Lenses</h3>
+<ul>
+{{range .Lenses}}
+    <li>Lens: {{.}}</li>
+{{end}}
+</ul>
+
+
+<h3>Logic Engines</h3>
+<ul>
+{{range .Logics}}
+    <li>Logic Engine: {{.}}</li>
+{{end}}
+</ul>
+
+
+<h3>Experiments</h3>
+<ul>
+{{range .Experiments}}
+<li>
+    Dataset: {{.DatasetName }}<br/>
+    Experiment: {{.ExperimentName}}<br/>
+    Started: {{.DateStarted}} <br/>
+    Finished: {{.DateFinished}} <br/>
+</li>
+{{end}}
+</ul>
+
+{{template "footer"}}
