@@ -17,8 +17,9 @@
 <div>
     <canvas id="numEventsByNodeChart"></canvas>
 </div>
-  
-  
+
+<button onclick="downloadGraph()">Download Graph</button>
+
 <script>
   const ctx = document.getElementById('numEventsByNodeChart');
 
@@ -52,6 +53,13 @@
       }
     }
   });
+  function downloadGraph() {
+        const link = document.createElement('a');
+        link.href = document.getElementById('numEventsByNodeChart').toDataURL('image/png'); // Use toDataURL instead of toBase64Image
+        link.download = 'numEventsByNodeChart.png';
+        link.click();
+    }
+
 </script>
 
 {{ end }}

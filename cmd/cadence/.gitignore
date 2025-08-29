@@ -1,2 +1,5 @@
 cadence
-gorm.db
+*.db
+env/
+cadence.prof
+node_modules

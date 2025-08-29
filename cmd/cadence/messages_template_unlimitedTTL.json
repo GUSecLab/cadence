@@ -1,0 +1,14 @@
+{
+    "id" : "",
+    "sender" : -1,
+    "destination" : -1,
+    "type" : 10,
+    "time": 0,
+    "payload": "Hi ",
+    "shards": 0,
+    "shardid": 0,
+    "ms": false,
+    "ttl_hops": 2000,
+    "ttl_time": 10000000,
+    "size": 1
+}

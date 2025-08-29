@@ -18,6 +18,7 @@
     <canvas id="delMessgageTimesChart"></canvas>
 </div>
   
+<button onclick="downloadGraph()">Download Graph</button>
   
 <script>
   const ctx = document.getElementById('delMessgageTimesChart');
@@ -54,6 +55,13 @@
       }
     }
   });
+  function downloadGraph() {
+        const link = document.createElement('a');
+        link.href = document.getElementById('delMessgageTimesChart').toDataURL('image/png'); // Use toDataURL instead of toBase64Image
+        link.download = 'delMessgageTimesChart.png';
+        link.click();
+    }
+
 </script>
 
 {{ end }}

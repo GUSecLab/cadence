@@ -1,5 +1,7 @@
 # Logic API
 
+**note: this is slightly outdated. reference source code for exact function parameter lists**
+
 ## InitLogic(block *LogicConf, log *logger.Logger) - 
 initialize function of a logic engine. It obtains a block that consists of hyper-parameters for initializing the logic engine, and a pointer to the logger. Each logic analyzes its parameters from the block. For example, the probability of message transfer in the Randomwalk-v1 routing algorithm.
 ```
@@ -43,7 +45,7 @@ initially stores a message at a node (i.e., when the message is originated and f
 ```
 
 ## HandleEncounter(encounter *model.Encounter) float32 -
- potentially does a message exchange between nodes when an encounter occurs. This function returns the bandwidth of the encounter. The input is the encounter.
+ potentially does a message exchange between nodes when an encounter occurs. This function returns the bandwidth of the encounter, or the amount of messages passed during the encounter. The input is the encounter.
 
 ## HandleHelper(encounter *model.Encounter, messageMap1 *sync.Map, messageMap2 *sync.Map, nodeid1 model.NodeId, nodeid2 model.NodeId) float32 - 
 this function is exposed to set the functionality of the attackers. It allows us to define half of an encounter, in a case where an attacker is in place. The original logic engine governs the message transfer of the benign node, and the attacker logic governs what the attacker does. This function returns the bandwidth of this half of an encounter. The inputs are the encounter, the message queues and nodeids.

@@ -6,6 +6,8 @@ import (
 	"sync"
 )
 
+// This function will calculate the closest epoch while two nodes encountered. 
+// The epochTime will be saved in a model.Encounter variable and updated into EncounterChain
 func updateClosestEncounterTime(prev, now float64, timeOfClosestEncounter float64) float64 {
 	// Calculate the absolute differences between prev and timeOfClosestEncounter, and now and timeOfClosestEncounter
 	diffPrev := math.Abs(prev - timeOfClosestEncounter)
@@ -106,7 +108,7 @@ func didCrossPaths(epoch *Epoch, n1events, n2events *startEndEvents, conditions 
 	timeOfClosestEncounter = updateClosestEncounterTime(tStart, tEnd, timeOfClosestEncounter+tStart)
 	//timeOfClosestEncounter = timeOfClosestEncounter + tStart
 	//calculate the new encounter point
-	//in which the nearest
+	//in which the nearest epoch
 
 	return allConditionsPassed, timeOfClosestEncounter, avX, avY, avZ
 }

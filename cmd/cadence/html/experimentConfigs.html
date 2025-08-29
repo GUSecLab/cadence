@@ -1,0 +1,39 @@
+{{template "header"}}
+
+
+<h3>Experiment Configuration Records</h3>
+
+<ul>
+{{ range .Experiments }}
+<li><a href="/experimentConfigs?experiment={{ . }}">{{ . }}</a></li>
+{{end}}
+</ul>
+
+{{ if .ChosenExperiment }}
+
+<b><h2>{{ .ChosenExperiment }}</h2></b>
+<ul>
+    <li>Logic Name: {{ .Config.LogicName }}</li>
+    <li>Messages File: {{ .Config.MessagesFile}}</li>
+    <li>Conditions File: {{ .Config.ConditionsFile }}</li>
+    <li>Start Time: {{ .Config.StartTime }}</li>
+    <li>End Time: {{ .Config.EndTime }}</li>
+    <li>Dataset: {{ .Config.DatasetName }}</li>
+    <li>Experiment Name: {{ .Config.ExpName }}</li>
+    <li>Max Buffer Size: {{ .Config.Max_buffer }}</li>
+    <li>Min Buffer Size: {{ .Config.Min_buffer }}</li>
+    <li>Min Message Size: {{ .Config.Min_message_size }}</li>
+    <li>Max Message Size: {{ .Config.Max_message_size }}</li>
+    <li>N Splits: {{ .Config.Sim_n_splits }}</li>
+    <li>Time Step: {{ .Config.Time_step }}</li>
+    <li>K Top Nodes: {{ .Config.Ktop_nodes }}</li>
+    <li>Message Generator Option: {{ .Config.MessageGeneratorOption }}</li>
+    <li>Messages Template Path: {{ .Config.MessagesTemplatePath }}</li>
+    <li>Generator Script Path: {{ .Config.GeneratorScriptPath }}</li>
+    <li>Database File: {{ .Config.DbFile }}</li>
+</ul>
+
+
+{{ end }}
+
+{{template "footer"}}

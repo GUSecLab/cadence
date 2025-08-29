@@ -1,0 +1,11 @@
+{
+  "conditions" : [
+    {
+      "name" : "distance200m",
+      "type" : "distance",
+      "params" : {
+        "dist" : 200.0
+      }
+    }
+  ]
+}

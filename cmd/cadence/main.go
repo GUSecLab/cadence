@@ -1,242 +1,161 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	model "marathon-sim/datamodel"
 	"marathon-sim/lens"
 	logics "marathon-sim/logic"
 	"os"
 	"os/user"
-	"strings"
-	"time"
+	"runtime/pprof"
 
-	"github.com/akamensky/argparse"
 	logger "github.com/sirupsen/logrus"
 )
 
-// let's make life easier by making the logger a global variable
+// create global log variable
 var log *logger.Logger
 
 func main() {
-	// let's figure out who is running this thing
+
+	// generate a config file for cadence
+	config := model.MakeDefaultConfig()
+
 	user, err := user.Current()
 	if err != nil {
 		panic(err)
 	}
 
-	parser := argparse.NewParser("cadence", "the Cadence simulator")
-
-	// top level args
-	logLevel := parser.Selector("d", "level", []string{"INFO", "DEBUG", "WARN"},
-		&argparse.Options{
-			Help:    "logging level",
-			Default: "INFO",
-		})
-	// seed arg
-	seed := parser.Int("s", "seed", &argparse.Options{
-		Help:    "random number seed",
-		Default: int(time.Now().UnixNano()),
-	})
-	// database type
-	dbType := parser.Selector("t", "dbtype", []string{"sqllite", "mysql"},
-		&argparse.Options{
-			Help:    "database type",
-			Default: "sqllite",
-		})
-	// database file
-	dbFile := parser.String("D", "dbfile", &argparse.Options{
-		Help:    "path to database file or data source name (DSN)",
-		Default: "gorm.db",
-	})
-
-	// web server args
-	commandWeb := parser.NewCommand("web", "run web server")
-	webPort := commandWeb.Int("p", "port", &argparse.Options{
-		Help:    "port to listen on",
-		Default: 8080,
-	})
-	webHost := commandWeb.String("i", "host", &argparse.Options{
-		Help:    "host to listen on",
-		Default: "localhost",
-	})
-
-	// simulation args
-	commandSim := parser.NewCommand("sim", "run a simulation")
-	// timing args
-	simTimeStart := commandSim.Float("S", "start", &argparse.Options{
-		Help:    "start time (in UNIX time)",
-		Default: 0.0,
-	})
-	simTimeEnd := commandSim.Float("E", "end", &argparse.Options{
-		Help:    "end time (in UNIX time); defaults to end of run",
-		Default: -1.0,
-	})
-	// dataset name
-	simDataset := commandSim.String("n", "name", &argparse.Options{
-		Help:     "dataset name",
-		Required: true,
-	})
-	// experiment name
-	simExp := commandSim.String("e", "experiment", &argparse.Options{
-		Help:     "experiment name",
-		Required: true,
-	})
-	// researcher name
-
-	simInvestigator := commandSim.String("i", "investigator", &argparse.Options{
-		Help:    "investigator's name",
-		Default: user.Username,
-	})
-	// general conditions file
-
-	simConditions := commandSim.String("c", "conditions", &argparse.Options{
-		Help:     "path to conditions JSON file",
-		Required: true,
-	})
-	// logic engine name
-	simLogic := commandSim.String("L", "logic", &argparse.Options{
-		Help:     "logic engine to use (" + strings.Join(logics.GetInstalledLogicEngines(), ",") + ")",
-		Required: true,
-	})
-	// engine logic conf file
-	simLogicFile := commandSim.String("p", "logicpf", &argparse.Options{
-		Help:     "defines the logic file to use",
-		Required: true,
-	})
-	// messages files to use
-	simMessages := commandSim.String("m", "mes", &argparse.Options{
-		Help:     "message output file to use",
-		Required: true,
-	})
-	simMessagesGen := commandSim.String("a", "mesgen", &argparse.Options{
-		Help:     "message generation type to use",
-		Required: true,
-	})
-	simMessagesTemp := commandSim.String("j", "mestemplate", &argparse.Options{
-		Help:     "message generation type to use",
-		Required: true,
-	})
-	simGeneratorScript := commandSim.String("q", "messcript", &argparse.Options{
-		Help:     "message generation type to use",
-		Required: true,
-	})
-
-	//buffer defs
-	simMaxBuffer := commandSim.Int("k", "maxb", &argparse.Options{
-		Help:     "defines the maximum size of worker buffer",
-		Required: true,
-	})
-	simMinBuffer := commandSim.Int("g", "minb", &argparse.Options{
-		Help:     "defines the minimum size of worker buffer",
-		Required: true,
-	})
-	//messages confs
-	simMinMesSize := commandSim.Float("v", "minmes", &argparse.Options{
-		Help:     "defines the minimum size of a message",
-		Required: true,
-	})
-	simMaxMesSize := commandSim.Float("w", "maxmes", &argparse.Options{
-		Help:     "defines the maximum size of a message",
-		Required: true,
-	})
-	// minimum amount of events to be included in the experiment
-	simNSplits := commandSim.Int("o", "nsplits", &argparse.Options{
-		Help:     "number of encounters where split is needed",
-		Required: true,
-	})
-	//time step value
-	timeStep := commandSim.Float("z", "tstep", &argparse.Options{
-		Help:     "defines the time step of epochs",
-		Required: true,
-	})
-	//encoutner isolate time
-	// encIso := commandSim.Float("l", "enciso", &argparse.Options{
-	// 	Help:     "defines the minimum isolation time between consecutive encounters",
-	// 	Required: true,
-	// })
-	// command line (CLI) args
-	commandCLI := parser.NewCommand("cli", "use command-line interface")
-	commandListLenses := commandCLI.NewCommand("lenses", "list lenses")
-	commandImport := commandCLI.NewCommand("import", "import data from a dataset")
-	commandImportLens := commandImport.String("l", "lens", &argparse.Options{
-		Help:     "lens to use (" + lens.GetInstalledLenses() + ")",
-		Required: true,
-	})
-	commandImportPath := commandImport.String("p", "path", &argparse.Options{
-		Help:     "file or path to import",
-		Required: true,
-	})
-	commandImportDatasetName := commandImport.String("n", "name", &argparse.Options{
-		Help:     "dataset name",
-		Required: true,
-	})
-
-	////get the parameters from the config file
-	args := GetConfiguration(os.Args[1], os.Args[2:])
-
-	err = parser.Parse(strings.Split(args, " "))
-	if err != nil {
-		fmt.Fprint(os.Stderr, parser.Usage(err))
+	// check for valid command line
+	// must have at least one parameter specifying run type
+	if len(os.Args) < 2 {
+		fmt.Println("missing required run type: web, sim, import, list")
 		os.Exit(1)
 	}
-	// set up logger for the system
+
+	// check for run type
+	runType := os.Args[1]
+
+	if (runType != "web") && (runType != "sim") && (runType != "import") && (runType != "list")&&(runType != "report")&&(runType != "csv") {
+		fmt.Println("invalid run type: web, sim, import, list, report, csv")
+		os.Exit(1)
+	}
+
+	// parse the command line for a json config file
+
+	if len(os.Args) > 2 {
+		filename := os.Args[2]
+		filedata, err := os.ReadFile(filename)
+
+		if err != nil {
+			fmt.Fprint(os.Stderr, err)
+			os.Exit(1)
+		}
+
+		err = json.Unmarshal(filedata, &config)
+
+		if err != nil {
+			fmt.Fprint(os.Stderr, err)
+			os.Exit(1)
+		}
+	}
+
+	// Start profiling after we parse the config, if necessary 
+
+	if config.Simulation.Profiling {
+		log.Info("Profiling has been started.")
+		// Run go tool pprof -http=:8080 cadence.prof in the command line to check the result, make sure to install graphviz in your system.
+		f, err := os.Create("cadence.prof")
+		if err != nil {
+			log.Debugf("profiling file is not created: %v", err)
+			return
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}	
+
+
+	// set up the logger
 	log = logger.New()
-	l, err := logger.ParseLevel(*logLevel)
+	level, err := logger.ParseLevel(config.TopLevel.Log)
+
 	if err != nil {
-		fmt.Fprint(os.Stderr, parser.Usage(err))
+		fmt.Fprint(os.Stderr, err)
 		os.Exit(1)
 	}
-	log.SetLevel(l)
+
+	log.SetLevel(level)
 	customFormatter := new(logger.TextFormatter)
 	customFormatter.TimestampFormat = "2006-01-02 15:04:05.000"
 	log.SetFormatter(UTCFormatter{customFormatter})
 	customFormatter.FullTimestamp = true
 
-	log.Info("running with args ", os.Args)
+	log.Info("running with config:\n", config)
 
 	// set up PRNG
-	model.Seed(int64(*seed))
-	log.Infof("random seed is %v", *seed)
+	model.Seed(int64(config.TopLevel.Seed))
+	log.Infof("random seed is %v", config.TopLevel.Seed)
 	log.Info("starting")
-	log.Infof("logging at log level %v; all times in UTC", *logLevel)
+	log.Infof("logging at log level %v; all times in UTC", config.TopLevel.Log)
 	if path, err := os.Getwd(); err != nil {
 		log.Fatalf("cannot get working directory: %v", err)
 	} else {
 		log.Debugf("running from %v", path)
 	}
 
-	// initialize the lenses
+	// initializing the lenses
 	lens.LensInit(log)
-	// initialize the DB
-	model.Init(log, *dbType, *dbFile)
-	//init the counter of messages
-	logics.InitCounter(log)
-	//init the encounter manager - now constant of 20 seconds
-	InitEncManager(*timeStep)
-	// the ordering of the cases in this switch is extremely important; this
-	// needs to be ordered by most specific command
 
-	switch {
-	case commandImport.Happened():
-		if err := lens.Import(*commandImportLens, *commandImportPath, *commandImportDatasetName); err != nil {
+	// initialize the database
+	model.Init(log, config)
+
+	// initialize the message counter
+	logics.InitCounter(log)
+
+	// initiailize the encounter manager - now consant of 20 seconds
+	InitEncManager(float64(config.Simulation.TimeStep))
+
+	// running cadence based on specified runType
+
+	switch runType {
+	case "import":
+		if err := lens.Import(config); err != nil {
+
 			log.Warnf("import raised an error: %v", err)
 		}
-	case commandSim.Happened():
-		//init memory control
-		log.Infof("defining default memory/buffer")
-		logics.InitMemory(log, *simMinBuffer)
-		// initialize the logic engines in general
-		//and the specific engine used
-		logics.LogicEnginesInit(log, *simLogicFile)
-		//run simulation func
-		simulate(*simLogic, *simMessages, *simConditions, *simTimeStart, *simTimeEnd, *simDataset, *simExp, *simInvestigator, *simMaxBuffer, *simMinBuffer, float32(*simMinMesSize), float32(*simMaxMesSize), int(*simNSplits), float32(*timeStep), *simMessagesGen, *simMessagesTemp, *simGeneratorScript, *dbFile)
-	case commandListLenses.Happened():
-		lens.PrintLenses()
-	case commandCLI.Happened():
-		log.Debug("using command-line interface")
-	case commandWeb.Happened():
 
-		webService(*webHost, *webPort)
+	case "sim":
+		// initialize memory control
+		log.Info("defining default memory/buffer")
+		logics.InitMemory(log, config)
+
+		// initialize the logic engines in general and the specific engine used
+		// logics.LogicEnginesInit(log, config.Simulation.LogicFile)
+		logics.LogicEnginesInit(log, config)
+
+		// run simulation logic
+		simulate(config, user.Username)
+
+	case "list":
+		lens.PrintLenses()
+
+	case "web":
+		webService(config)
+	
+	case "report":
+		downloadReport()
+	
+	case "csv" :
+		exportCSV()
 	}
-	log.Info("ending")
+	
+
+	// ending the run
+
+	log.Info(" ... ending ... ")
+
+	if config.Simulation.Profiling {
+		log.Info("Profiling has been stopped.")
+	}
+
 }
