@@ -1,5 +1,6 @@
 # The Cadence simulator
 
+authors: Ruoxing Yang, Harel Berger, Micah Sherr, Adam Aviv
 
 ## Components
 
