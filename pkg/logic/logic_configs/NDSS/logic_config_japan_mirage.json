@@ -1,0 +1,15 @@
+{
+    "logic": "mirage",
+    "dataset_name": "japan",
+    "underlyning_logic": "mirage",
+    "organizer": 1,
+    "districts_amount": 100,
+    "p": 0.65,
+    "epsilon": 0.1,
+    "k": 6,
+    "kmeans_iterations": 50,
+    "max_n": 100,
+    "n_factor": 3,
+    "noise_sigma": 0.01,
+    "attack_type": "noise"
+}

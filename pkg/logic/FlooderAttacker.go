@@ -39,7 +39,7 @@ func (m *FlooderAttacker) OneSidedAttack(encounter *model.Encounter, modifier mo
 		//fake creation time and TTLs
 		newMessage_fake.CreationTime = 0
 		newMessage_fake.TTLHops = 100
-		newMessage_fake.TTLSecs = 10000
+		newMessage_fake.TTLTime = 10000
 		//hand over to the general handler,
 		//with the attacker as sender
 		//and the benign as receiver

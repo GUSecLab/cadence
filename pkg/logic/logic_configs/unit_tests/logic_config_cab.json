@@ -1,0 +1,16 @@
+{
+    "logic": "broadcast",
+    "dataset_name": "cabspotting",
+    "adversaries_file": "attackers.json",
+    "underlyning_logic": "broadcast",
+    "profile_file": "profile_defs.json",
+    "randomwalk_transfer_probability": 0.7,
+    "randomwalk_delete_probability": 0,
+    "randomwalk_transfer_constant": 1,
+    "mixed_randomwalk_version": 1,
+    "mixed_flood_version": 0,
+    "mixed_ideality_version": 0,
+    "ideality_coin_flip": 0.7,
+    "ideality_distance_n": 1,
+    "organizer": 1
+} 

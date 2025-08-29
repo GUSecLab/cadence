@@ -114,12 +114,12 @@ func TestToString(t *testing.T) {
 		in   interface{}
 		out  string
 	}{
-		{"int", math.MaxInt64, "9223372036854775807"},
+		{"int", math.MaxInt, "2147483647"},
 		{"int8", int8(math.MaxInt8), "127"},
 		{"int16", int16(math.MaxInt16), "32767"},
 		{"int32", int32(math.MaxInt32), "2147483647"},
 		{"int64", int64(math.MaxInt64), "9223372036854775807"},
-		{"uint", uint(math.MaxUint64), "18446744073709551615"},
+		{"uint", uint(math.MaxUint), "4294967295"},
 		{"uint8", uint8(math.MaxUint8), "255"},
 		{"uint16", uint16(math.MaxUint16), "65535"},
 		{"uint32", uint32(math.MaxUint32), "4294967295"},

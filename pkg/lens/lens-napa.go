@@ -16,7 +16,10 @@ import (
 	logger "github.com/sirupsen/logrus"
 )
 
-// Geolife is a Lens for the geolife dataset
+// Napa is a lens for the napa event within the natural disasters dataset
+// however, it should be generalizable to any event within the natural 
+// disasters dataset, or for the entire dataset import
+
 type Napa struct {
 	r       *regexp.Regexp
 	log     *logger.Logger
@@ -48,23 +51,16 @@ func (h *Napa) getNodeId(nodeString string) model.NodeId {
 	}
 }
 
-func (h *Napa) processFile(path, datasetName string) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	fileScanner := bufio.NewScanner(f)
-	fileScanner.Split(bufio.ScanLines)
-	// read the rest into memory
-	buf := ""
-	for fileScanner.Scan() {
-		buf += fileScanner.Text() + "\n"
-	}
+// adds data from the buffered reader to the database
+func (h *Napa) addToDatabase(r *csv.Reader, path string, datasetName string) error {
+
 	nodes := make(map[model.NodeId]bool)
 	events := make([]model.Event, 0)
 	eventCounter := 0
 	var nodeId model.NodeId
-	r := csv.NewReader(strings.NewReader(buf))
+
+	h.log.Debugf("loading data from reader to database")
+
 	for {
 		record, err := r.Read()
 		if err == io.EOF {
@@ -125,6 +121,7 @@ func (h *Napa) processFile(path, datasetName string) error {
 			events = nil
 		}
 		h.log.Debugf("adding a new event: %v", e)
+
 	}
 
 	// if there are left over events, add it to DB
@@ -152,6 +149,60 @@ func (h *Napa) processFile(path, datasetName string) error {
 	return nil
 }
 
+// processFile reads the file at path, and adds the events to the database
+func (h *Napa) processFile(path, datasetName string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+
+	h.log.Debug("file opened successfully, initiating scanner")
+
+	fileScanner := bufio.NewScanner(f)
+	fileScanner.Split(bufio.ScanLines)
+	// read the rest into memory
+	buf := ""
+	line := 0
+	maxBufferSize := 10000
+
+	fileScanner.Scan() // skip the first line, it contains headings
+
+	for fileScanner.Scan() {
+		line++
+		buf += fileScanner.Text() + "\n"
+
+		// every 10000 lines, log progress, add to database, clear buffer
+		if (line % maxBufferSize == 0) {
+
+			h.log.Debugf("read %v lines", line)
+			r := csv.NewReader(strings.NewReader(buf))
+		
+			h.log.Debug("adding events to database")
+			err = h.addToDatabase(r, path, datasetName)
+			if err != nil {
+				return err
+			}
+			h.log.Debug("clearing buffer")
+			buf = ""
+		}
+	}
+
+	// adding leftover events in buffer to db
+
+	if buf != "" {
+		r := csv.NewReader(strings.NewReader(buf))
+		
+		h.log.Debug("adding remainder events to database")
+		err = h.addToDatabase(r, path, datasetName)
+		if err != nil {
+			return err
+		}
+		h.log.Debug("clearing buffer")
+		buf = ""
+	}
+	return nil
+}
+
 func (h *Napa) Import(path string, datasetName string) error {
 
 	err := filepath.Walk(path,
@@ -169,6 +220,7 @@ func (h *Napa) Import(path string, datasetName string) error {
 		})
 	if err != nil {
 		h.log.Warn(err)
+		return err
 	}
 
 	return nil
