@@ -162,7 +162,9 @@ For more information on Cadence, see further documentation in the /docs director
 
 * **nodeID**: a unique identifier for a node; an integer.
 
-## Reference Paper: 
+## Reference Papers: 
+
+Please cite these papers when using the simulator.
 
 ```bibtex
 @inproceedings{berger2023cadence,
@@ -171,5 +173,14 @@ For more information on Cadence, see further documentation in the /docs director
   booktitle={Proceedings of the 16th Cyber Security Experimentation and Test Workshop},
   pages={26--31},
   year={2023}
+}
+
+@inproceedings{zacharyratliffMiragePrivateMobilitybased2026,
+  title = {Mirage: {{Private}}, {{Mobility-based Routing}} for {{Censorship Evasion}}},
+  booktitle = {Network and {{Distributed System Security Symposium}} ({{NDSS}})},
+  author = {Ratliff, Zachary and Yang, Ruoxing (David) and Bai, Avery and Berger, Harel and Sherr, Micah and Mickens, James},
+  year = {2026},
+  month = feb,
+  note = {To appear.}
 }
 
