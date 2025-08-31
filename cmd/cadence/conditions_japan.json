@@ -1,0 +1,11 @@
+{
+  "conditions" : [
+    {
+      "name" : "distanceOverlap",
+      "type" : "distance",
+      "params" : {
+        "dist" : 50
+      }
+    }
+  ]
+}

@@ -1,6 +1,0 @@
-[submodule "marathon-mobility-data"]
-	path = marathon-mobility-data
-	url = git@github.com:GUSecLab/marathon-mobility-data.git
-[submodule "tufte-css"]
-	path = tufte-css
-	url = https://github.com/edwardtufte/tufte-css

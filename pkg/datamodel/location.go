@@ -9,6 +9,7 @@ const (
 	LocationTypeUnknown LocationType = iota
 	LocationTypeCoord
 	LocationTypeLongLat
+	LocationTypeLongLat2D
 )
 
 // a `Location` is an interface that marshals and unmarshals locations.
@@ -44,6 +45,15 @@ func Unmarshall(bytes []byte, t LocationType) (Location, error) {
 			return nil, err
 		} else {
 			return l, nil
+		}
+		
+	case LocationTypeLongLat2D:
+		var l2D *LatLongAlt2D = new(LatLongAlt2D)
+		// Log the JSON for debugging purposes
+		if err := l2D.Unmarshal(bytes); err != nil {
+			return nil, err
+		} else {
+			return l2D, nil
 		}
 	case LocationTypeUnknown:
 		return nil, errors.New("invalid location type")

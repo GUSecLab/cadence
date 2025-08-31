@@ -3,22 +3,22 @@
 Example:
 
 ```
-[
+
   {
-    "id" : 1,
-    "sender" : 55,
-    "destination" : 56,
+    "id" : "",
+    "sender" : -1,
+    "destination" : -1,
     "type" : 10,
-    "time": 1206349104
-  },
-  {
-    "id" : 2,
-    "sender" : 92,
-    "destination" : 55,
-    "type" : 10,
-    "time" : 1200003170
-  }
-]
+    "time": 0,
+    "payload": "Hi ",
+    "shards": 0,
+    "shardid": 0,
+    "ms": false,
+    "ttl_hops": 20,
+    "ttl_secs": 1000000,
+    "size": 1
+}
+
 ```
 
 Cadence simulations typically include message passing.  To indicate where and when messages originate, a messages.json file must be specified.  (This file can be named whatever you like, and is passed into Cadence using the `-m` or `--messages` option.)
@@ -32,4 +32,8 @@ The "sender" specifies the NodeID of the originator of the message.  Similarly, 
 The "time" field indicates when the originator effectively hits the "send" button on their device.  Note that the first transmission of the message may occur after this time, if no encounter takes place exactly at "time".
 
 The "type" field indicates the type of message (e.g., unicast, multicast, broadcast, or anycast).  Current types are defined in [/pkg/logic/message.go](/pkg/logic/message.go).  Note that the "type" field must correspond to the integer value of the address type.
+
+The "shards","shardid","ms" relate to the options of splitting messages (under construction).
+
+The ttl values (secs and hops) refer to the amount of time or nodes a message can be transfered until it can no longer be passed.
 

@@ -54,7 +54,7 @@ func (pb *prefetcherBin) fetchMoreEvents(nodeId model.NodeId, t float64) (bool, 
 	}
 	var timeStart float64
 	if err := rows.Scan(&timeStart); err != nil {
-		log.Debugf("DB scan failed: ", err)
+		log.Debug("DB scan failed: ", err)
 		pb.done = true
 		// log.Infof("failed in time start scan %v for time %v", err, t)
 		return false, nil
@@ -64,7 +64,6 @@ func (pb *prefetcherBin) fetchMoreEvents(nodeId model.NodeId, t float64) (bool, 
 	// now that we know where to start looking, fetch more events!
 	if r := model.DB.Limit(prefetchBatchSize).Find(&bufEventList, "dataset_name = ? and node = ? and time >= ?", dataset.DatasetName, nodeId, timeStart).Order("time"); r.Error != nil {
 		log.Warn("DB fetch failed: ", r.Error)
-		// log.Info("failed in fetching times")
 		return true, r.Error
 	}
 	for _, e := range bufEventList {
@@ -99,6 +98,8 @@ func (p *prefetcher) init() {
 	log.Debug("initialized prefetcher")
 }
 
+/*
+//-- DEAD CODE -- REMOVE ME LATER --
 func (p *prefetcher) getNodePositions_new(epoch *Epoch, id model.NodeId) (*startEndEvents, error) {
 	// it's better for the database if we serialize this
 	// prefetchDBLock.Lock()
@@ -107,17 +108,22 @@ func (p *prefetcher) getNodePositions_new(epoch *Epoch, id model.NodeId) (*start
 
 	// first, figure out the time of the entry at or before t
 	if r := model.DB.Limit(1).Find(&timeStart, "dataset_name = ? and node = ? and time <= ?", dataset.DatasetName, id, epoch.prev).Order("time DESC"); r.Error != nil {
-		log.Debugf("DB fetch failed: ", r.Error)
+		log.Debug("DB fetch failed: ", r.Error)
 		return nil, r.Error
 	}
 	// first, figure out the time of the entry at or before t
 	if r := model.DB.Limit(1).Find(&timeEnd, "dataset_name = ? and node = ? and time >= ?", dataset.DatasetName, id, epoch.now).Order("time"); r.Error != nil {
-		log.Debugf("DB fetch failed: ", r.Error)
+		log.Debug("DB fetch failed: ", r.Error)
 		return nil, r.Error
 	}
 	return &startEndEvents{start: timeStart, end: timeEnd}, nil
 }
+*/
 
+// figure out the start and end events for the given node and epoch.
+// the start event is defined as either occuring at the start of the epoch
+// or the one just before the epoch starts.  The end event is defined as the
+// one that occurs at the end of the epoch or the one just after the epoch ends.
 func (p *prefetcher) getNodePositions(epoch *Epoch, id model.NodeId) (*startEndEvents, error) {
 
 	// check whether we have started prefetching for this nodeID

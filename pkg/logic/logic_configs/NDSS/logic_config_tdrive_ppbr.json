@@ -1,0 +1,8 @@
+{
+    "logic":"addressing",
+    "dataset_name": "tdrive",
+    "underlyning_logic": "addressing",
+    "profile_file": "cmd/cadence/profile_defs.json",
+    "organizer": 1,
+    "districts_amount": 100
+} 

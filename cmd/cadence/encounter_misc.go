@@ -6,19 +6,19 @@ import (
 	"sync"
 )
 
-var encounters_manager *sync.Map
-var default_duration float64
+var encountersManagerMap *sync.Map
+var encounterManagerTimeStep float64
 
 // this file governs the duration of encounters
 type EncounterEpoch struct {
-	enc                 *model.Encounter
-	epoch_end           float64 //store only the end of epoch, not the whole one
-	last_encounter_time float64 //this will help to calculate the duration as the end
+	enc               *model.Encounter
+	epochEnd          float64 //store only the end of epoch, not the whole one
+	lastEncounterTime float64 //this will help to calculate the duration as the end
 }
 
-func InitEncManager(def_dur float64) {
-	default_duration = def_dur
-	encounters_manager = &sync.Map{}
+func InitEncManager(defaultTimeStep float64) {
+	encounterManagerTimeStep = defaultTimeStep
+	encountersManagerMap = &sync.Map{}
 }
 
 // this function checks if a new encounter is consecutive
@@ -30,7 +30,7 @@ func CheckConsecutive(enc_c *model.Encounter, epoch_c *Epoch) bool {
 		return true
 	}
 	//check if the current epoch follows the one in memory
-	last_enc_end := past.epoch_end
+	last_enc_end := past.epochEnd
 	return last_enc_end == epoch_c.prev
 }
 
@@ -41,7 +41,7 @@ func GetEncounterEpoch(enc *model.Encounter) *EncounterEpoch {
 	// check for existing EncounterEpoch for the key
 	var tmp any
 	var ok bool
-	if tmp, ok = encounters_manager.Load(key); !ok {
+	if tmp, ok = encountersManagerMap.Load(key); !ok {
 		return nil
 	}
 	return tmp.(*EncounterEpoch)
@@ -58,7 +58,7 @@ func UpdateEncounterChain(enc *model.Encounter, epoch *Epoch) {
 	// get the nodes as keys
 	past := GetEncounterEpoch(enc)
 	if past == nil { //this is the first time the nodes meet
-		encounters_manager.Store(key, &EncounterEpoch{enc: enc, epoch_end: epoch.now, last_encounter_time: enc.Time})
+		encountersManagerMap.Store(key, &EncounterEpoch{enc: enc, epochEnd: epoch.now, lastEncounterTime: enc.Time})
 	} else {
 		//store the new data
 		//but remember to store the original encounter with the new epoch
@@ -66,7 +66,7 @@ func UpdateEncounterChain(enc *model.Encounter, epoch *Epoch) {
 		//and the new epoch
 		//Also, save the time of the current encounter
 		//so at the end, we will be able to correctly calculate the duration
-		encounters_manager.Store(key, &EncounterEpoch{enc: past.enc, epoch_end: epoch.now, last_encounter_time: enc.Time})
+		encountersManagerMap.Store(key, &EncounterEpoch{enc: past.enc, epochEnd: epoch.now, lastEncounterTime: enc.Time})
 	}
 }
 
@@ -77,25 +77,25 @@ func FinalizeDuration(enc *model.Encounter, epoch *Epoch) {
 	final_enc := orig_data.enc
 	//we saved the last encounter time in the chain
 	//so we can now calculate the estimated duration
-	final_enc.Duration = float32(math.Max(orig_data.last_encounter_time-final_enc.Time, default_duration))
+	final_enc.Duration = float32(math.Max(orig_data.lastEncounterTime-final_enc.Time, encounterManagerTimeStep))
 	// and..send it to the channel
 	encounterChan <- final_enc
 	//now,set the current encounter for next iteration
 	//as the past encounter
 	key := [2]int{model.NodeIdInt(orig_data.enc.Node1), model.NodeIdInt(orig_data.enc.Node2)}
-	encounters_manager.Delete(key)
+	encountersManagerMap.Delete(key)
 	//now update the new encounter
 	UpdateEncounterChain(enc, epoch)
 }
 
 // this function is called at the end of the simulator
 // to get the last encounters that were left in the manager
-func EmptyEncountnersManager() {
+func EmptyEncountersManager() {
 	// Create a wait group to wait for all iterations to finish
 	var wg sync.WaitGroup
 
 	// Start iterating over the map's keys and values
-	encounters_manager.Range(func(key, value interface{}) bool {
+	encountersManagerMap.Range(func(key, value interface{}) bool {
 		wg.Add(1)
 		go func(k, v interface{}) {
 			defer wg.Done()
@@ -103,7 +103,7 @@ func EmptyEncountnersManager() {
 			final_enc := tmp_v.enc
 			//we saved the last encounter time in the chain
 			//so we can now calculate the estimated duration
-			final_enc.Duration = float32(math.Max(tmp_v.last_encounter_time-final_enc.Time, default_duration))
+			final_enc.Duration = float32(math.Max(tmp_v.lastEncounterTime-final_enc.Time, encounterManagerTimeStep))
 			// and..send it to the channel
 			encounterChan <- final_enc
 

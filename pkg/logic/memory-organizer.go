@@ -1,3 +1,5 @@
+// memory organizer functions default to simple buffer type!!
+
 package logic
 
 import (
@@ -36,7 +38,7 @@ func (or *SimpleBoundedOrganizer) OrganizerTypeReturn() OrganizerType {
 func (or *SimpleBoundedOrganizer) CheckMemory(nodeid model.NodeId, size float32) bool {
 
 	nodemem, _ := Storage.NodesMemories.Load(nodeid)
-	nodemem_serialized := nodemem.(*NodeMemory)
+	nodemem_serialized := nodemem.(*SimpleBuffer)
 	//compare buffer size and message size
 	return (size + nodemem_serialized.BufferUsage) <= nodemem_serialized.BufferSize
 
@@ -50,7 +52,7 @@ func (or *SimpleBoundedOrganizer) MakeRoom(nodeid model.NodeId) {
 		Storage.log.Infof("can't get the node %v memory", nodeid)
 	}
 	//get the messages queue
-	messages := nodemem.(*NodeMemory).MessagesQueue
+	messages := GetMessageQueue(nodeid)
 	// initialize oldestMessage to be nil
 	var oldestMessage *Message
 	oldestMessage = nil
@@ -67,11 +69,14 @@ func (or *SimpleBoundedOrganizer) MakeRoom(nodeid model.NodeId) {
 		return true
 	})
 	//update usage decrease
-	nodemem.(*NodeMemory).BufferUsage -= oldestMessage.Size
+	nodemem.(*SimpleBuffer).BufferUsage -= oldestMessage.Size
+	//remove from the count of messages in total
+	ChangeMessageCount(oldestMessage.MessageId, -1)
 	//delete the message from the message queue
 	messages.Delete(oldestMessage.MessageId)
 	//update the memory usage in general and for the node
-	nodemem.(*NodeMemory).MessagesQueue = messages
+	nodemem.(*SimpleBuffer).MessagesQueue = messages
+
 	//update the storage control
 	Storage.NodesMemories.Store(nodeid, nodemem)
 

@@ -169,6 +169,7 @@ func (c *TDrive) Import(path string, datasetName string) error {
 		})
 	if err != nil {
 		c.log.Warn(err)
+		return err
 	}
 
 	return nil

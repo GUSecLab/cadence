@@ -25,6 +25,8 @@
 
     <div id="boxPlot"></div> <!-- Element for the Box Plot -->
 
+    <button onclick="downloadGraph()">Download Graph</button>
+
     <script>
         // Your JSON input
         //var inputJSON=JSON.parse('{\"hand_25\":[{\"broadcast\":[{\"ExperimentName\":\"broadcast_hand_correct4\",\"LatSec\":2448,\"LatHop\":1.2,\"MaxBuf\":6,\"MaxBand\":6,\"NetLoad\":10,\"Throughput\":0.8333333,\"NumMessages\":6,\"AvgCopiesMessages\":2.6666666666666665,\"PeakLoad\":16,\"AverageLoad\":13.373134328358208},{\"ExperimentName\":\"broadcast_hand_correct5\",\"LatSec\":2448,\"LatHop\":1.2,\"MaxBuf\":6,\"MaxBand\":6,\"NetLoad\":10,\"Throughput\":0.4,\"NumMessages\":6,\"AvgCopiesMessages\":2.6666666666666665,\"PeakLoad\":16,\"AverageLoad\":13.373134328358208},{\"ExperimentName\":\"broadcast_hand_correct6\",\"LatSec\":2448,\"LatHop\":1.2,\"MaxBuf\":6,\"MaxBand\":6,\"NetLoad\":10,\"Throughput\":0.1,\"NumMessages\":6,\"AvgCopiesMessages\":2.6666666666666665,\"PeakLoad\":16,\"AverageLoad\":13.373134328358208}]},{\"test\":[{\"ExperimentName\":\"broadcast_hand_correct4\",\"LatSec\":2448,\"LatHop\":1.2,\"MaxBuf\":6,\"MaxBand\":6,\"NetLoad\":10,\"Throughput\":0.8333333,\"NumMessages\":6,\"AvgCopiesMessages\":2.6666666666666665,\"PeakLoad\":16,\"AverageLoad\":13.373134328358208},{\"ExperimentName\":\"broadcast_hand_correct5\",\"LatSec\":2448,\"LatHop\":1.2,\"MaxBuf\":6,\"MaxBand\":6,\"NetLoad\":10,\"Throughput\":0.4,\"NumMessages\":6,\"AvgCopiesMessages\":2.6666666666666665,\"PeakLoad\":16,\"AverageLoad\":13.373134328358208},{\"ExperimentName\":\"broadcast_hand_correct6\",\"LatSec\":2448,\"LatHop\":1.2,\"MaxBuf\":6,\"MaxBand\":6,\"NetLoad\":10,\"Throughput\":0.1,\"NumMessages\":6,\"AvgCopiesMessages\":2.6666666666666665,\"PeakLoad\":16,\"AverageLoad\":13.373134328358208}]}]}')
@@ -175,5 +177,12 @@
         populateMetricDropdown();
         generateCategoryCheckboxes();
         renderBoxPlot();
+
+        function downloadGraph() {
+        const link = document.createElement('a');
+        link.href = document.getElementById('boxPlot').toDataURL('image/png'); // Use toDataURL instead of toBase64Image
+        link.download = 'boxPlot.png';
+        link.click();
+    }
     </script>
 {{template "footer"}}

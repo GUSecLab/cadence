@@ -14,63 +14,63 @@ Example file:
 ```
 {
   "top_level": {
-    "log": "INFO", //log level
-    "db": "mysql", //name of database
-    "dbfile": "USERNAME:PASSWORD@tcp(127.0.0.1:3306)/SCHEMA?charset=utf8mb4&parseTime=True&loc=Local", //string of connection to the db, based on username:password, IP address, schema name, and other parameters 
-    "time_format": "2006-01-02 15:04:05.000" 
+    "log": "DEBUG",
+    "db": "sqlite",
+    "dbfile": "sqlite_test.db",
+    "time_format": "2006-01-02 15:04:05.000" ,
     "seed": 12345 
   },
-  "web_server": { //configurations for graphical web service
-    "port": 8080,
+  "web_server": {
+    "port": 8082,
     "host": "localhost"
   },
   "simulation": {
-    "start_time": 1212498842,
-    "end_time": 1212505535,
-    "dataset_name": "hand",
-    "experiment_name": "broadcast_hand2",
-    "conditions_file": "conditions.json", //path to conditions file
-    "logic": "broadcast", 
-    "logic_file": "../../pkg/logic/logic_config_hand.json", //path to logic configuration file
-    "messages_file": "../../../marathon-files/messages_hand.json", //path to messages file
-    "messages_template": "messages_template.json", //path to messages template file
-    "generator_script": "message_generator.py", //path to message generator file
-    "message_generation_type": 1, //message generation type - random pairs (0) or N^2 messages
-    "min_buffer_size": 1000, //buffer min/max
-    "max_buffer_size": 1000,
-    "min_connection_duration": 1, //min/max connection times
-    "max_connection_duration": 2,
-    "min_message_size": 1.0, // min/max message size
+    "start_time": 1201959058,
+    "end_time": 1202492359,
+    "dataset_name": "tdrive",
+    "experiment_name": "tdrive - mirage run=3 p=0.9 k=6",
+    "conditions_file": "conditions.json",
+    "logic": "mirage", 
+    "logic_file": "../../pkg/logic/logic_configs/mirage/logic_config_tdrive_mirage.json",
+    "messages_file": "../../../marathon-files/messages_tdrive_dm_x10.json",
+    "messages_template": "messages_template.json",
+    "generator_script": "message_generator.py",
+    "message_generation_type":2, 
+    "min_buffer_size": 100,
+    "max_buffer_size": 100,
+    "min_message_size": 1.0,
     "max_message_size": 1.0,
-    "min_events_per_node": 0, //min amount of events to be included in the message creation
-    "time_step": 100.0, // timestep for discrete split of the data
-    "encounter_isolator": 100.0, // isolation between timesteps - not implemented yet
-    "N_encounters_split": 2 // splitting big encounters by N encounters, if desired
+    "time_step": 60.0,
+    "encounter_isolator": 60.0,
+    "N_encounters_split": 2
   },
   "cli":{
-    "lens": "napa",
-    "path": "../../marathon-mobility-data/napa",
-    "name": "napa"
+    "lens": "tdrive",
+    "path": "../../marathon-mobility-data/tdrive-small",
+    "name": "tdrive"
   }
 }
+
+
 ```
 
 ## Logic conf files
 Example file:
 ```
 {
-    "logic": "mixed", 
-    "dataset_name": "geolife",
-    "underlyning_logic": "mixed", //underlyning logic in case of attackers
-    "profile_file": "profile_defs.json", //profile for HumaNets protocol 
-    "randomwalk_transfer_probability": 0.5, //P probability for randomwalk-v1
-    "randomwalk_delete_probability": 1, //Q probability for randomwalks
-    "randomwalk_transfer_constant": 1, //Constant values for randomwalk-v2
-    "mixed_randomwalk_version": 1, //randomwalk version for mixed
-    "mixed_ideality_version": 0, //mixed ideality algo
-    "ideality_coin_flip": 0.7, //probability for mixed algo coin flip
-    "ideality_distance_n": 1, // N last nodes for mixed algo
-    "organizer": 2 //organizer governs if the buffers are bounded or not, 1 for bounded, 2 for unbounded
+    "logic":"mirage",
+    "dataset_name": "tdrive",
+    "underlyning_logic": "mirage",
+    "profile_file": "profile_defs.json",
+    "organizer": 1,
+    "districts_amount": 100,
+    "p": 0.9,
+    "epsilon": 0.1,
+    "k": 6,
+    "kmeans_iterations": 50,
+    "max_n": 100,
+    "n_factor": 3,
+    "noise_sigma": 0.1 
 } 
 ```
 

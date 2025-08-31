@@ -1,0 +1,14 @@
+{
+    "logic": "randomwalk-v2",
+    "dataset_name": "cabspotting",
+    "underlyning_logic": "randomwalk-v2",
+    "profile_file": "profile_defs.json",
+    "randomwalk_transfer_probability": 0.5,
+    "randomwalk_delete_probability": 1,
+    "randomwalk_transfer_constant": 1000,
+    "mixed_randomwalk_version": 1,
+    "mixed_ideality_version": 0,
+    "ideality_coin_flip": 0.7,
+    "ideality_distance_n": 1,
+    "organizer": 1
+} 

@@ -13,12 +13,13 @@
 
 {{ if .ChosenExperiment }}
 
-<h3>Messages recieved per Node</h3>
+<h3>Messages sent per Node</h3>
 <div>
     <canvas id="messagesPerNodeChart"></canvas>
 </div>
   
-  
+<button onclick="downloadGraph()">Download Graph</button>
+
 <script>
   const ctx = document.getElementById('messagesPerNodeChart');
 
@@ -53,6 +54,14 @@
       }
     }
   });
+
+  function downloadGraph() {
+        const link = document.createElement('a');
+        link.href = document.getElementById('messagesPerNodeChart').toDataURL('image/png'); // Use toDataURL instead of toBase64Image
+        link.download = 'messagesPerNodeChart.png';
+        link.click();
+    }
+
 </script>
 
 {{ end }}

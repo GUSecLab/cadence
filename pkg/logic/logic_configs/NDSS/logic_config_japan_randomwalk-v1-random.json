@@ -1,0 +1,14 @@
+{
+    "logic": "randomwalk-v1",
+    "dataset_name": "japan",
+    "underlyning_logic": "randomwalk-v1",
+    "randomwalk_transfer_probability": 0.5,
+    "randomwalk_delete_probability": 0.8,
+    "randomwalk_transfer_constant": 1,
+    "mixed_randomwalk_version": 1,
+    "mixed_flood_version": 0,
+    "mixed_ideality_version": 0,
+    "ideality_coin_flip": 0.7,
+    "ideality_distance_n": 1,
+    "organizer": 1
+} 

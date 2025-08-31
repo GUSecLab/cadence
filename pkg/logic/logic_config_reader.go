@@ -14,10 +14,25 @@ type LogicConf struct {
 	ProfileFile                   string        `json:"profile_file"`
 	RandomwalkTransferProbability float32       `json:"randomwalk_transfer_probability"`
 	RandomwalkDeleteProbability   float32       `json:"randomwalk_delete_probability"`
+	ConstantTransferProbability   float32       `json:"randomwalk_transfer_constant"`
+	MixedRandomVersion            int           `json:"mixed_randomwalk_version"`
+	MixedIdealityVersion          int           `json:"mixed_ideality_version"`
 	MaxBufferSize                 int           `json:"max_buffer_size"`
+	IdealityCoinFlip              float32       `json:"ideality_coin_flip"`
+	IdealityDistanceN             int           `json:"ideality_distance_n"`
 	UnderlyningLogic              string        `json:"underlyning_logic"`
 	Dataset                       string        `json:"dataset_name"`
 	Organizer                     OrganizerType `json:"organizer"`
+	RemoveDeliveredMessages       bool          `json:"remove_delivered_messages"`
+	DistrictsAmount               int           `json:"districts_amount"`
+	P                             float32       `json:"p"`
+	Wormhole                      bool          `json:"wormhole"`
+	K							  int           `json:"k"` // k-hot vector size for the regions
+	KMeansIterations			  int           `json:"kmeans_iterations"`
+	MaxN                          int		    `json:"max_n"`
+	NFactor		                  int           `json:"n_factor"`
+	NoiseSigma                    float64       `json:"noise_sigma"` // sigma for DP noise
+	AttackType                    string        `json:"attack_type"` // type of attack to perform for MIRAGE
 }
 
 // read configuration file

@@ -5,8 +5,8 @@ import (
 	"errors"
 	model "marathon-sim/datamodel"
 	"math"
-	"strconv"
-	"strings"
+	//"strconv"
+	//"strings"
 	"sync"
 
 	logger "github.com/sirupsen/logrus"
@@ -16,6 +16,9 @@ import (
 
 // our logger
 var logg *logger.Logger
+
+// new addition with DP - save a pointer to the logic
+var logicEnginePointer *Logic
 
 // Lock the map for exclusive access
 var LocksMapMutex *sync.Mutex
@@ -36,18 +39,21 @@ type Logic interface {
 
 	// potentially does a message exchange between nodes when an encounter
 	// occurs. This function returns the ideal bandwidth and actual bandwidth
-	HandleEncounter(encounter *model.Encounter) float32
+	HandleEncounter(config *model.Config, encounter *model.Encounter) (float32, float32)
 
 	//data preparation function
 	//this function converts the data
 	//into a map of nodeid->XYZ geolocations.
 	//This is the returned output.
-	DataPreparation(rows *sql.Rows, node_list *sql.Rows, logg *logger.Logger, minevents int) (sync.Map, []model.NodeId)
+	// DataPreparation(rows *sql.Rows, node_list *sql.Rows, logg *logger.Logger, minevents int) (*sync.Map, []model.NodeId)
 
-	//Handel helper
+	// new DataPreparation function with DP addition removes the node_list parameter
+	DataPreparation(rows *sql.Rows, logg *logger.Logger, minevents int, config *model.Config) (*sync.Map, []model.NodeId)
+
+	//Handle helper
 	//this funciton is exposed to set the functionality
 	//of the attackers.This function returns the ideal bandwidth and actual bandwidth
-	HandleHelper(encounter *model.Encounter, messageMap1 *sync.Map, messageMap2 *sync.Map, nodeid1 model.NodeId, nodeid2 model.NodeId) float32
+	HandleHelper(config *model.Config, encounter *model.Encounter, messageMap1 *sync.Map, messageMap2 *sync.Map, nodeid1 model.NodeId, nodeid2 model.NodeId) (float32, float32)
 	//get the logic name
 	GetLogicName() string
 }
@@ -58,13 +64,21 @@ var LogicStore map[string]Logic
 // initialize the logic engines.
 //
 // Important: new logic engines need to be added here!
-func LogicEnginesInit(log *logger.Logger, simLogicFile string) {
+func LogicEnginesInit(log *logger.Logger, config *model.Config) {
+
+	// extract the logic file from the config
+	simLogicFile := config.Simulation.LogicFile
+
 	LogicStore = make(map[string]Logic)
 	// populate the LogicStore with all of the available logic engines
 	LogicStore["broadcast"] = &BroadcastLogic{}
-	LogicStore["adversary"] = &Adversary{}
+	// LogicStore["adversary"] = &Adversary{}
 	LogicStore["randomwalk-v1"] = &RandomWalkLogicV1{}
+	LogicStore["randomwalk-v2"] = &RandomWalkLogicV2{}
 	LogicStore["addressing"] = &AddressingLogic{}
+	// LogicStore["addressing-dp"] = &AddressingLogicDP{}
+	LogicStore["mixed"] = &MixedLogic{}
+	LogicStore["mirage"] = &MirageLogic{}
 
 	//init locks on counter
 	lockMessage = make(map[string]*sync.Mutex)
@@ -78,6 +92,7 @@ func LogicEnginesInit(log *logger.Logger, simLogicFile string) {
 	// }
 	//init the logic engine for the experiment
 	logicEng, err := GetLogicByName(block.LogicName)
+	logicEnginePointer = &logicEng
 	if err != nil {
 		log.Info("problem with init logic engine, abort!")
 		return
@@ -195,21 +210,26 @@ func AssignChannels(messageDBChan_ chan *model.MessageDB, messagedeliveredDBChan
 //this function places the message in the sync.map of recepient
 //and updating the db on it
 
-func TransferMessage(encounter *model.Encounter, messageMap1 *sync.Map, messageMap2 *sync.Map, nodeid1 model.NodeId, nodeid2 model.NodeId, messageId string, message *Message) bool {
+// first return value is transfer success, second is whether the message was dropped by bounded buffer
+func TransferMessage(config *model.Config, encounter *model.Encounter, messageMap1 *sync.Map, messageMap2 *sync.Map, nodeid1 model.NodeId, nodeid2 model.NodeId, messageId string, message *Message) (bool, bool) {
 
 	//check that the time did not pass,
 	//and the amount of legal hops transfer
 	// was not finished
-	if message.TTLHops < 0 || encounter.Time-message.CreationTime < float64(message.TTLSecs) {
-		return false
+	if message.TTLHops < 0 || encounter.Time-message.CreationTime > float64(message.TTLTime) {
+		DeleteMesNode(nodeid1, message) // TODO: check: this is back with DP addition? 
+		return false, false
 	}
+
+	tmp_sync := *messageMap2 // use a pointer instead of object
 	// if it's not present on node 2, make a copy and store it on the node
-	if _, ok := messageMap2.Load(messageId); !ok {
+	if _, ok := tmp_sync.Load(messageId); !ok {
 		//check if the message was transfered by the nearby node,
 		//if so - do not transfer!
 		if len(message.path) > 1 && message.path[len(message.path)-2].prevNode == nodeid2 {
-			return false
+			return false, false
 		}
+
 		// LockMutexMessage(messageId)
 		// val, _ := MessagesCopies.Load(messageId)
 		// MessagesCopies.Store(messageId, val.(int)+1)
@@ -224,7 +244,7 @@ func TransferMessage(encounter *model.Encounter, messageMap1 *sync.Map, messageM
 
 		//messageMap2.Store(message.MessageId, newMessage)
 		//update the saving of the message in the buffer
-		UpdateMemoryNode(nodeid2, newMessage)
+		didDrop := UpdateMemoryNode(config, nodeid2, newMessage)
 
 		//add the recieving node to the path
 		path_tmp := newMessage.GetPathString()
@@ -232,78 +252,99 @@ func TransferMessage(encounter *model.Encounter, messageMap1 *sync.Map, messageM
 		//for document purposes
 		dest := newMessage.GetDestinationString()
 
-		//messageDBChan <- m
+		source_string := "" // new addition with DP
+
+		//create the data to send to messages DB
+		m := &model.MessageDB{
+			ExperimentName: encounter.ExperimentName,
+			MessageId:      newMessage.MessageId,
+			Sender:         model.NodeIdInt(newMessage.Sender),
+			Type:           addressTypeToString(newMessage.Type),
+			Destination:    dest,
+			Payload:        newMessage.Payload.(string),
+			CreationTime:   newMessage.CreationTime,
+			TransferTime:   encounter.Time,
+			Path:           path_tmp,
+			Hops:           newMessage.LatHops,
+			Sender_Node:    model.NodeIdInt(nodeid1),
+			Reciever_Node:  model.NodeIdInt(nodeid2),
+			MPop:           newMessage.MPop,
+			LPop:           newMessage.LPop,
+			FakeMessage:    newMessage.FakeMessage,
+			TTLHops:        newMessage.TTLHops,
+			TTLTime:        newMessage.TTLTime,
+			Size:           newMessage.Size,
+		}
+
+		messageDBChan <- m
 
 		//check if the message arrived at destination (approx.)
 		//check if message arrived at destination
-		if ArrivalCheck(dest, encounter, message, nodeid2) && !message.IsDeliveredYet() { //message arrived at destination
+		if ArrivalCheck(encounter, message, nodeid2) && !message.IsDeliveredYet() { //message arrived at destination
+			logg.Info("message delivered")
+
 			//document received message at destination
 			dm := &model.DeliveredMessageDB{
 				ExperimentName: encounter.ExperimentName,
 				MessageId:      newMessage.MessageId,
 				Sender:         model.NodeIdInt(newMessage.Sender),
 				Destination:    dest,
+				Source:			source_string,
 				Payload:        newMessage.Payload.(string),
-				DeliverTime:    encounter.Time - newMessage.CreationTime,
+				DeliverTime:    encounter.Time,
+				CreationTime:   newMessage.CreationTime,
 				Path:           path_tmp,
 				Hops:           newMessage.LatHops,
 				FakeMessage:    newMessage.FakeMessage,
 				TTLHops:        newMessage.TTLHops,
-				TTLSecs:        newMessage.TTLSecs,
+				TTLTime:        newMessage.TTLTime,
 				Size:           newMessage.Size,
 			}
+
+			// new addition for DP
+			if newMessage.ShardsAvailable != 1 {
+				dm.FinalMessage = true
+			} else { //shard, remove payload- it won't be able to record it
+				dm.Payload = "redacted"
+				dm.FinalMessage = false
+			}
+
 			receivedmessageDBChan <- dm
 			//sign that the message was delivered
 			newMessage.MessageDelivered()
 		}
-		// check for reassmeblement
+		// check for reassemblement
 		if newMessage.ShardsAvailable == 1 {
-			//create the data to send to messages DB
-			m := &model.MessageDB{
-				ExperimentName: encounter.ExperimentName,
-				MessageId:      newMessage.MessageId,
-				Sender:         model.NodeIdInt(newMessage.Sender),
-				Type:           addressTypeToString(newMessage.Type),
-				Destination:    dest,
-				Payload:        newMessage.Payload.(string),
-				CreationTime:   newMessage.CreationTime,
-				TransferTime:   encounter.Time,
-				Path:           path_tmp,
-				Hops:           newMessage.LatHops,
-				Sender_Node:    model.NodeIdInt(nodeid1),
-				Reciever_Node:  model.NodeIdInt(nodeid2),
-				MPop:           newMessage.MPop,
-				LPop:           newMessage.LPop,
-				FakeMessage:    newMessage.FakeMessage,
-				TTLHops:        newMessage.TTLHops,
-				TTLSecs:        newMessage.TTLSecs,
-				Size:           newMessage.Size,
-			}
+
 			dm := &model.DeliveredMessageDB{
 				ExperimentName: encounter.ExperimentName,
 				MessageId:      newMessage.MessageId,
 				Sender:         model.NodeIdInt(newMessage.Sender),
 				Destination:    dest,
 				Payload:        newMessage.Payload.(string),
-				DeliverTime:    encounter.Time - newMessage.CreationTime,
+				DeliverTime:    encounter.Time,
+				CreationTime:   newMessage.CreationTime,
 				Path:           path_tmp,
 				FakeMessage:    newMessage.FakeMessage,
 				TTLHops:        newMessage.TTLHops,
 				Hops:           newMessage.LatHops,
-				TTLSecs:        newMessage.TTLSecs,
+				TTLTime:        newMessage.TTLTime,
 				Size:           newMessage.Size,
 			}
 			ReassmbleMessage(messageMap2, dm, m, newMessage.CreationTime)
 		}
 
 		//message transfered
-		return true
+		return true, didDrop
 	}
 	//message already exists,sign that
 	//you don't transfer it
-	return false
+	return false, false
 }
 
+/*
+
+// DEPRECATED: old ArrivalCheck function
 // a function that checks if the message arrived at a target
 func ArrivalCheck(dest string, encounter *model.Encounter, mes *Message, destnode model.NodeId) bool {
 
@@ -317,6 +358,44 @@ func ArrivalCheck(dest string, encounter *model.Encounter, mes *Message, destnod
 	}
 }
 
+*/
+
+// new ArrivalCheck function for DP addition
+// a function that checks if the message arrived at a target
+func ArrivalCheck(encounter *model.Encounter, mes *Message, destnode model.NodeId) bool {
+
+	/*
+	FIX THIS: we want to check for actual node delivery and not simply district arrival 
+
+	destination : a district index
+	destinatonNode : a node id
+	*/
+
+	// the bottom code was "added" for addressing-DP, but our requirements have since changed! 
+	/*
+	if (*logicEnginePointer).GetLogicName() == "addressing-dp" { //check if we are in dp
+	//check if the message in the district in
+	encolsingDistrict := FindClosestCentroid(Point3D{float32(encounter.X), float32(encounter.Y), float32(encounter.Z)}, (*logicEnginePointer).(*AddressingLogicDP).DistrictsList)
+	return encolsingDistrict.Index == mes.Destination.(int)
+	
+	}
+	*/
+
+	//check for non-shard/non-dp
+	return mes.DestinationNode == destnode
+	//return NodalArrivalCheck(dest, destnode)
+	/***
+	//if the destination is a geolocation, check if the geolocation arrived
+	//and the node id as well
+	if strings.Contains(dest, ",") {
+		return GeoArrivalCheck(dest, encounter) && NodalArrivalCheck(model.NodeIdString(mes.DestinationNode), destnode)
+	} else {
+		//if the destination is a nodeid, check if it was found
+		return NodalArrivalCheck(dest, destnode)
+	}
+	***/
+}
+
 // a function that checks if the message arrived at a target node
 func NodalArrivalCheck(dest string, receiver model.NodeId) bool {
 	//if the destination is a nodeid, check if it was found
@@ -326,6 +405,8 @@ func NodalArrivalCheck(dest string, receiver model.NodeId) bool {
 		return false
 	}
 }
+
+/* deprecated with new DP update
 
 // function that checks if the message arrived at a target geolocation
 func GeoArrivalCheck(Destination string, encounter *model.Encounter) bool {
@@ -353,6 +434,12 @@ func GeoArrivalCheck(Destination string, encounter *model.Encounter) bool {
 	//check if the destination is close enough
 	return Distance(Address_cur, Address_mes, Profilier.GridData.Gridsize) <= Profilier.GridData.Distance
 }
+
+*/
+
+/*
+
+// old data preparation function: deprecated 
 
 // data preparation
 func OldDataPreparationGeneral(rows *sql.Rows, node_list *sql.Rows, logg *logger.Logger) (sync.Map, []model.NodeId) {
@@ -429,8 +516,10 @@ func OldDataPreparationGeneral(rows *sql.Rows, node_list *sql.Rows, logg *logger
 	return nodes_timely_data, newnodes
 }
 
+*/
+
 // data preparation
-func DataPreparationGeneral(rows *sql.Rows, node_list *sql.Rows, logg *logger.Logger, minevents int) (sync.Map, []model.NodeId) {
+func DataPreparationGeneral(rows *sql.Rows, logg *logger.Logger, minevents int) (*sync.Map, []model.NodeId) {
 	nodes_timely_data := sync.Map{}
 	nodes_map := make(map[model.NodeId]bool)
 	// Step 1: arrange the data
@@ -469,7 +558,9 @@ func DataPreparationGeneral(rows *sql.Rows, node_list *sql.Rows, logg *logger.Lo
 		}
 	}
 	//return the sorted data
-	return nodes_timely_data, nodes
+
+	// return value for sync.Map was changed to pointer to fix mutual exclusion lock issue
+	return &nodes_timely_data, nodes
 }
 
 // Helper function to calculate the distance between two grid positions
@@ -480,14 +571,27 @@ func Distance(pos1, pos2 [3]int, gridSize float64) float64 {
 	return math.Sqrt(dx*dx + dy*dy + dz*dz)
 }
 
-// stores a message at a node; does NOT make a copy of that message
-func OriginateMessage(nodeid model.NodeId, message *Message) {
-	//update a new message
-	UpdateMemoryNode(nodeid, message)
+// Helper function to calculate the distance between two grid positions
+func Distance3DPoint(pos1, pos2 Point3D, gridSize float64) float64 {
+	dx := (float64(pos1.X) - float64(pos2.X)) * gridSize
+	dy := (float64(pos1.Y) - float64(pos2.Y)) * gridSize
+	dz := (float64(pos1.Z) - float64(pos2.Z)) * gridSize
+	return math.Sqrt(dx*dx + dy*dy + dz*dz)
 }
+
+// stores a message at a node; does NOT make a copy of that message
+func OriginateMessage(config *model.Config, nodeid model.NodeId, message *Message) {
+	//update a new message
+	UpdateMemoryNode(config, nodeid, message)
+}
+
+/*
+
+// this function was moved to memory.go
 
 // get a message queue by a nodeid
 func GetMessageQueue(nodeid model.NodeId) *sync.Map {
+
 	//load the memory of the node
 	node_memory, ok := Storage.NodesMemories.Load(nodeid)
 	if !ok {
@@ -496,4 +600,12 @@ func GetMessageQueue(nodeid model.NodeId) *sync.Map {
 	//get the message queue return it
 	messages := node_memory.(*NodeMemory).MessagesQueue
 	return messages
+	
+}
+
+*/
+
+// helper function for testing purposes
+func InitChan() {
+	messageDBChan = make(chan *model.MessageDB, 1000) // buffer size of 1000 is arbitrary
 }

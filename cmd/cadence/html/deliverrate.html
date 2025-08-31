@@ -1,0 +1,150 @@
+{{template "header"}}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-pattern"></script>
+
+<h3>deliveryRateChart</h3>
+
+<!-- Checkboxes for selecting categories dynamically generated from the data -->
+<br>
+<label>Select Experiments:</label>
+<br>
+<div id="experimentsCheckboxes"></div>
+
+<!-- Delivery rate chart -->
+<div>
+    <canvas id="deliveryRateChart"></canvas>
+</div>
+
+<button onclick="downloadGraph()">Download Graph</button>
+
+<script>
+    const ctx = document.getElementById('deliveryRateChart').getContext('2d');
+
+    const experimentNames = [{{ range .ExperimentNames }}"{{ . }}", {{ end }}]; 
+    const deliverRates = [{{ range .DeliverRates }}{{ . }}, {{ end }}]; 
+
+    // Log for debugging purposes
+    console.log('Experiment Names:', experimentNames);
+    console.log('Deliver Rates:', deliverRates);
+    
+    var deliverRateChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+          labels: [], // X-axis labels
+          datasets: [{
+            label: 'Delivery Rate %',
+            data: [], // Y-axis data
+            backgroundColor:[],
+            borderWidth: 1,
+          }]
+      },
+      options: {
+        scales: {
+              y: {
+                  beginAtZero: true,
+                  title: {
+                      text: 'Deliver Rate %',
+                      display: true
+                  }
+              },
+              x: {
+                  title: {
+                      text: 'Experiment Name',
+                      display: true
+                  }
+              }
+          },
+        plugins: {
+            legend: {
+                display: true,
+                labels: {
+                    generateLabels: function(chart) {
+                        const dataset = chart.data.datasets[0];
+                        return chart.data.labels.map((label, index) => ({
+                            text: `${label}`,
+                            fillStyle: dataset.backgroundColor[index],
+                            strokeStyle: dataset.borderColor ? dataset.borderColor[index] : dataset.backgroundColor[index],
+                            lineWidth: dataset.borderWidth
+                        }));
+                    }
+                }
+            }
+        }
+        }
+  });
+
+    function generateExperimentsCheckboxes() {
+            var experimentsCheckboxes = document.getElementById("experimentsCheckboxes");
+            experimentsCheckboxes.innerHTML = "";
+
+            experimentNames.forEach(function (category, index) {
+                var checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.name = "experimentsCheckboxes";
+                checkbox.value = index;
+                checkbox.checked = true; // Default to checked
+                checkbox.addEventListener('change', renderChart); 
+
+                var label = document.createElement("label");
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(category));
+
+                experimentsCheckboxes.appendChild(label);
+            });
+            renderChart();
+        }
+ 
+    
+    function renderChart() {
+            var selectedExperiments = [];
+            var selectedRates = [];
+
+            // Get all checkboxes
+            var checkboxes = document.getElementsByName("experimentsCheckboxes");
+            
+            // Iterate through each checkbox to find the checked ones
+            checkboxes.forEach(function (checkbox) {
+                if (checkbox.checked) {
+                    var index = checkbox.value; // Get the index of the experiment
+                    selectedExperiments.push(experimentNames[index]); // Add selected experiment name
+                    selectedRates.push(deliverRates[index]); // Add corresponding deliver rate
+                }
+            });
+            barColors = generateBarColors(selectedExperiments.length);
+
+            // Update chart data
+            deliverRateChart.data.labels = selectedExperiments;
+            deliverRateChart.data.datasets[0].data = selectedRates;
+            deliverRateChart.data.datasets[0].backgroundColor = barColors;
+            deliverRateChart.update(); // Refresh chart
+        }
+    function generateBarColors(numberOfBars) {
+        const palette = [
+        '#E69F00',  // orange
+        '#56B4E9',  // sky blue
+        '#009E73',  // bluish green
+        '#F0E442',  // yellow
+        '#0072B2',  // blue
+        '#D55E00',  // vermilion
+        '#CC79A7'   // reddish purple
+        ];
+        var colors = [];
+        for (let i = 0; i < numberOfBars; i++) {
+            colors.push(palette[i % palette.length]);
+        }
+        return colors;
+    }
+    generateExperimentsCheckboxes();
+
+    function downloadGraph() {
+        const link = document.createElement('a');
+        link.href = document.getElementById('deliveryRateChart').toDataURL('image/png'); // Use toDataURL instead of toBase64Image
+        link.download = 'deliveryRateChart.png';
+        link.click();
+    }
+
+</script>
+ 
+
+
+{{template "footer"}}

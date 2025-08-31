@@ -108,6 +108,28 @@ func ReadConditionsFile(filename string) (EncounterConditions, string, error) {
 				name: nameVal,
 				p:    prob,
 			}
+		//condition for encounter controlled by last time
+		//the nodes met
+		case "whenhaveisawu":
+			if !areParams {
+				return nil, "", errors.New("'params' not defined for condition named " + nameVal)
+			}
+			transtiont, ok := params["transition_time"].(float64)
+			if !ok {
+				return nil, "", errors.New("'transition_time' not defined for condition named " + nameVal)
+			}
+			c = &WhenHaveISawUCondition{
+				name:               nameVal,
+				minimal_transition: transtiont,
+				encounters_memory:  &sync.Map{},
+			}
+
+			//condition for encounter controlled by last time
+			//the nodes met
+		case "doYouHaveEnoughUpdates":
+			c = &DoYouHaveEnoughUpdates{
+				name: nameVal,
+			}
 		}
 		conditions = append(conditions, c)
 		conditionStrings = append(conditionStrings, c.String())

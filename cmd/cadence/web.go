@@ -13,6 +13,9 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+
+	"github.com/go-echarts/go-echarts/v2/charts"
+	"github.com/go-echarts/go-echarts/v2/opts"
 )
 
 var tmpl *template.Template
@@ -117,6 +120,178 @@ func numEventsByNodeHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err := tmpl.ExecuteTemplate(w, "eventsbynode.html", data); err != nil {
 		log.Warnf("cannot execute template: %v", err)
+	}
+}
+
+// generate a plot of event locations, in 3d
+func eventLocationsHandler(w http.ResponseWriter, r *http.Request) {
+
+	datasets, err := model.GetDatasets()
+	if err != nil || len(datasets) < 1 {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	data := struct {
+		Datasets []string
+	}{
+		Datasets: datasets,
+	}
+
+	chosenDataset := r.URL.Query().Get("dataset")
+	if chosenDataset == "" {
+		if err := tmpl.ExecuteTemplate(w, "eventlocations.html", data); err != nil {
+			log.Warnf("cannot execute template: %v", err)
+		}
+	} else {
+		rows, err := model.DB.Table("events").
+			Select("node, count(*) as no, avg(x) as ax, avg(y) as ay, avg(z) as az").
+			Where("dataset_name=?", chosenDataset).Group("node").Rows()
+		if err != nil {
+			log.Warnf("error when performing query: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		data := make([]opts.Chart3DData, 0)
+
+		minX, minY, minZ := math.Inf(1), math.Inf(1), math.Inf(1)
+		maxX, maxY, maxZ := math.Inf(-1), math.Inf(-1), math.Inf(-1)
+
+		for rows.Next() {
+			var node, no int
+			var ax, ay, az float64
+			if err := rows.Scan(&node, &no, &ax, &ay, &az); err != nil {
+				log.Warnf("cannot read in values: %v", err)
+				continue
+			}
+			data = append(data, opts.Chart3DData{
+				Name: fmt.Sprintf("Node %v", node),
+				Value: []interface{}{
+					ax, ay, az},
+			})
+			// get some min and maxes for the plot
+			minX = math.Min(minX, ax)
+			minY = math.Min(minY, ay)
+			minZ = math.Min(minZ, az)
+			maxX = math.Max(maxX, ax)
+			maxY = math.Max(maxY, ay)
+			maxZ = math.Max(maxZ, az)
+		}
+		scatter3d := charts.NewScatter3D()
+
+		title := fmt.Sprintf("Event locations for '%v' dataset", chosenDataset)
+		scatter3d.SetGlobalOptions(
+			charts.WithTitleOpts(opts.Title{Title: title}),
+			charts.WithInitializationOpts(opts.Initialization{
+				PageTitle: "Cadence - Event Locations",
+			}),
+			charts.WithXAxis3DOpts(opts.XAxis3D{
+				Min: minX,
+				Max: maxX}),
+			charts.WithYAxis3DOpts(opts.YAxis3D{
+				Min: minY,
+				Max: maxY}),
+			charts.WithZAxis3DOpts(opts.ZAxis3D{
+				Min: minZ,
+				Max: maxZ}),
+		)
+		scatter3d.AddSeries("", data,
+			charts.WithLabelOpts(opts.Label{Show: false}),
+		)
+		scatter3d.Render(w)
+	}
+}
+
+// generate a plot of encounter locations, in 3d
+func encounterLocationsHandler(w http.ResponseWriter, r *http.Request) {
+
+	chosenDataset := r.URL.Query().Get("dataset")
+	chosenDistance := r.URL.Query().Get("distance")
+
+	if chosenDataset == "" || chosenDistance == "" {
+
+		type DatasetDistances struct {
+			DatasetName string
+			Distance    float64
+		}
+		var datasetDistances []DatasetDistances
+		result := model.DB.Table("encounters").
+			Select("distinct dataset_name, distance").
+			Find(&datasetDistances)
+		if result.Error != nil {
+			log.Warnf("error when performing query: %v", result.Error)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if err := tmpl.ExecuteTemplate(w, "encounterlocations.html", datasetDistances); err != nil {
+			log.Warnf("cannot execute template: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	} else {
+
+		minX, minY, minZ := math.Inf(1), math.Inf(1), math.Inf(1)
+		maxX, maxY, maxZ := math.Inf(-1), math.Inf(-1), math.Inf(-1)
+
+		type XYZ struct{ X, Y, Z float64 }
+		locations := make([]XYZ, 0)
+
+		result := model.DB.Table("encounters").
+			Select("x,y,z").
+			Where("dataset_name=? and distance=?", chosenDataset, chosenDistance).
+			Find(&locations)
+		if result.Error != nil {
+			log.Warnf("error when performing query: %v", result.Error)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		const maxPoints = 5000
+		splitPoint := -1
+		if len(locations) > maxPoints {
+			splitPoint = int(len(locations) / maxPoints)
+		}
+
+		data := make([]opts.Chart3DData, 0, maxPoints)
+
+		for c, xyz := range locations {
+			if (splitPoint == -1) || (c%splitPoint == 0) {
+				data = append(data, opts.Chart3DData{
+					Value: []interface{}{
+						xyz.X, xyz.Y, xyz.Z},
+				})
+			}
+			// get some min and maxes for the plot
+			minX = math.Min(minX, xyz.X)
+			minY = math.Min(minY, xyz.Y)
+			minZ = math.Min(minZ, xyz.Z)
+			maxX = math.Max(maxX, xyz.X)
+			maxY = math.Max(maxY, xyz.Y)
+			maxZ = math.Max(maxZ, xyz.Z)
+		}
+		scatter3d := charts.NewScatter3D()
+		title := fmt.Sprintf("Encounter locations (n=%v) for '%v' dataset (with distance %v)",
+			len(locations), chosenDataset, chosenDistance)
+		scatter3d.SetGlobalOptions(
+			charts.WithTitleOpts(opts.Title{Title: title}),
+			charts.WithInitializationOpts(opts.Initialization{
+				PageTitle: "Cadence - Encounter Locations",
+			}),
+			charts.WithXAxis3DOpts(opts.XAxis3D{
+				Min: minX,
+				Max: maxX}),
+			charts.WithYAxis3DOpts(opts.YAxis3D{
+				Min: minY,
+				Max: maxY}),
+			charts.WithZAxis3DOpts(opts.ZAxis3D{
+				Min: minZ,
+				Max: maxZ}),
+		)
+		scatter3d.AddSeries("", data,
+			charts.WithLabelOpts(opts.Label{Show: false}),
+		)
+		scatter3d.Render(w)
 	}
 }
 
@@ -226,7 +401,7 @@ func MessagesRecPerNodeHandler(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	if err := tmpl.ExecuteTemplate(w, "messagespernode.html", data); err != nil {
+	if err := tmpl.ExecuteTemplate(w, "messagesrecpernode.html", data); err != nil {
 		log.Warnf("cannot execute template: %v", err)
 	}
 }
@@ -282,7 +457,7 @@ func MessagesPerNodeHandler(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	if err := tmpl.ExecuteTemplate(w, "messagesrecpernode.html", data); err != nil {
+	if err := tmpl.ExecuteTemplate(w, "messagespernode.html", data); err != nil {
 		log.Warnf("cannot execute template: %v", err)
 	}
 }
@@ -420,6 +595,7 @@ func MetricsBoxes(w http.ResponseWriter, r *http.Request) {
 
 		//aggreagate the current thorugput
 		//to the logic
+		//classify the result metrics based on dataset_distance and logic.
 		key := e.FamilyDataset + "_" + strconv.FormatFloat(e.FamilyDistance, 'f', -1, 32)
 		// Check if the inner map is already initialized.
 		if familyLogicToExperiments[key] == nil {
@@ -446,6 +622,165 @@ func MetricsBoxes(w http.ResponseWriter, r *http.Request) {
 	//execute the box and whiskers graph creation
 	if err := tmpl.ExecuteTemplate(w, "metricsboxes.html", escapedJSON); err != nil {
 		log.Warnf("cannot execute template: %v", err)
+	}
+}
+
+func MessageDeliveringRateHandler(w http.ResponseWriter, r *http.Request) {
+	
+	experiments, err := model.GetDatasetsAndExperiments()
+	if err != nil {
+		log.Errorf("error fetching experiments: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	experimentNames := make([]string, 0, len(experiments))
+	for _, e := range experiments {
+		experimentNames = append(experimentNames, e.ExperimentName)
+
+	}
+	type data struct {
+		Experiment     string
+		DeliveredMsg   int
+		TransferredMsg int
+		DeliverRate    int
+	}
+	dataList := make([]data, 0, len(experimentNames))
+
+	var numMessages int
+	err = model.DB.Table("results_dbs").
+		Select("num_messages").
+		Where("experiment_name = ?", experimentNames[0]).
+		Row().
+		Scan(&numMessages)
+	if err != nil {
+		log.Warnf("error when querying num_messages: %v", err)
+		// handle error as needed
+	}
+
+	for _, chosenExperiment := range experimentNames {
+		var experiment data
+		experiment.Experiment = chosenExperiment
+
+		var transfer_count = int64(numMessages) // use the num_messages from results_dbs
+		var deliver_count int64
+
+		err = model.DB.Table("delivered_message_dbs").Select("count(distinct(message_id))").Where("experiment_name=?", chosenExperiment).Count(&deliver_count).Error
+		if err != nil {
+			log.Warnf("error when performing query: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		experiment.TransferredMsg = int(transfer_count)
+		experiment.DeliveredMsg = int(deliver_count)
+
+		if experiment.TransferredMsg == 0 {
+			experiment.DeliverRate = 0
+		} else {
+			experiment.DeliverRate = experiment.DeliveredMsg * 100 / experiment.TransferredMsg
+		}
+		dataList = append(dataList, experiment)
+	}
+	experimentNames = []string{}
+	deliverRates := []int{}
+	for _, exp := range dataList {
+		experimentNames = append(experimentNames, exp.Experiment)
+		deliverRates = append(deliverRates, exp.DeliverRate)
+	}
+
+	// Render the template
+	tmplData := struct {
+		ExperimentNames []string
+		DeliverRates    []int
+	}{
+		ExperimentNames: experimentNames,
+		DeliverRates:    deliverRates,
+	}
+
+	if err := tmpl.ExecuteTemplate(w, "deliverrate.html", tmplData); err != nil {
+		log.Warnf("cannot execute template: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+
+}
+
+func DeliveryRateByExperimentHandler(w http.ResponseWriter, r *http.Request) {
+		
+	experiments, error := model.GetDatasetsAndExperiments()
+	if error != nil {
+		log.Infof("error fetching experiments: %v", error)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	experimentNames := make([]string, 0, len(experiments))
+	for _, e := range experiments {
+		experimentNames = append(experimentNames, e.ExperimentName)
+
+	}
+
+	type data struct {
+		Experiment     string
+		DeliveredMsg   int
+		TransferredMsg int
+		DeliverRate    int
+	}
+
+	var experiment data
+	experiment.Experiment = "default"
+	experiment.DeliveredMsg = 0
+	experiment.TransferredMsg = 0
+	experiment.DeliverRate = 0
+
+	var numMessages int
+	err := model.DB.Table("results_dbs").
+		Select("num_messages").
+		Where("experiment_name = ?", experimentNames[0]).
+		Row().
+		Scan(&numMessages)
+	if err != nil {
+		log.Warnf("error when querying num_messages: %v", err)
+		// handle error as needed
+	}
+
+	chosenExperiment := r.URL.Query().Get("experiment")
+	if chosenExperiment != "" {
+		
+		experiment.Experiment = chosenExperiment
+
+		var transfer_count  = int64(numMessages) // use the num_messages from results_dbs
+		var deliver_count int64
+
+		err = model.DB.Table("delivered_message_dbs").Select("count(distinct(message_id))").Where("experiment_name=?", chosenExperiment).Count(&deliver_count).Error
+		if err != nil {
+			log.Infof("error when performing query: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		experiment.TransferredMsg = int(transfer_count)
+		experiment.DeliveredMsg = int(deliver_count)
+
+		if experiment.TransferredMsg == 0 {
+			experiment.DeliverRate = 0
+		} else {
+			experiment.DeliverRate = experiment.DeliveredMsg * 100 / experiment.TransferredMsg
+		}
+	}
+
+
+	tmplData := struct {
+		Experiments 	[]string
+		ChosenExperiment string
+		DeliveredMsg 	int
+		DeliverRate 	int
+	} {
+		Experiments: experimentNames,
+		ChosenExperiment: chosenExperiment,
+		DeliveredMsg: experiment.DeliveredMsg,
+		DeliverRate: experiment.DeliverRate,
+	}
+
+	if err := tmpl.ExecuteTemplate(w, "deliverratebyexperiment.html", tmplData); err != nil {
+		log.Warnf("cannot execute template: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
 
@@ -564,29 +899,87 @@ func createBuckets(values []float64, minValue float64, maxValue float64) ([]stri
 
 // generate a plot of the number of encounters for each node
 func encounterHandler(w http.ResponseWriter, r *http.Request) {
+	/*
+		experiments, err := model.GetDatasetsAndExperiments()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		experimentNames := make([]string, 0, len(experiments))
+		for _, e := range experiments {
+			experimentNames = append(experimentNames, e.ExperimentName)
+		}
 
-	experiments, err := model.GetDatasetsAndExperiments()
+		data := struct {
+			Experiments      []string
+			ChosenExperiment string
+			Nodes            string
+			Counts           string
+		}{
+			Experiments: experimentNames,
+		}
+
+		chosenExperiment := r.URL.Query().Get("experiment")
+		if chosenExperiment != "" {
+
+			var encounteredNodes []model.EncounteredNodes
+
+			if r := model.DB.Find(&encounteredNodes, "experiment_name=?", chosenExperiment); r.Error != nil {
+				log.Warnf("error when performing query: %v", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			nodes := make([]string, 0, len(encounteredNodes))
+			counts := make([]string, 0, len(encounteredNodes))
+
+			for _, en := range encounteredNodes {
+				nodes = append(nodes, strconv.Itoa(int(en.Node)))
+				counts = append(counts, strconv.Itoa(en.Count))
+			}
+
+			data.ChosenExperiment = chosenExperiment
+			data.Nodes = strings.Join(nodes, ",")
+			data.Counts = strings.Join(counts, ",")
+
+		}
+
+		if err := tmpl.ExecuteTemplate(w, "encounters.html", data); err != nil {
+			log.Warnf("cannot execute template: %v", err)
+		}*/
+
+	encounters, err := model.GetDatesetsAndEncounters()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	experimentNames := make([]string, 0, len(experiments))
-	for _, e := range experiments {
-		experimentNames = append(experimentNames, e.ExperimentName)
-	}
+	experimentNames := make([]string, 0, len(encounters))
+	datasetNames := make([]string, 0, len(encounters))
 
+	for _, e := range encounters {
+		experimentNames = append(experimentNames, e.Experiment)
+		datasetNames = append(datasetNames, e.Dataset)
+	}
 	data := struct {
-		Experiments      []string
-		ChosenExperiment string
-		Nodes            string
-		Counts           string
+		Datasets      []string
+		Experiments   []string
+		ChosenDataset string
+		Nodes         string
+		Counts        string
 	}{
+		Datasets:    datasetNames,
 		Experiments: experimentNames,
 	}
+	chosenDataset := r.URL.Query().Get("dataset")
+	data.ChosenDataset = chosenDataset
+	var chosenExperiment string
+	if chosenDataset != "" {
 
-	chosenExperiment := r.URL.Query().Get("experiment")
-	if chosenExperiment != "" {
-
+		for i, v := range datasetNames {
+			if v == chosenDataset {
+				chosenExperiment = experimentNames[i]
+			}
+		}
 		var encounteredNodes []model.EncounteredNodes
 
 		if r := model.DB.Find(&encounteredNodes, "experiment_name=?", chosenExperiment); r.Error != nil {
@@ -594,7 +987,6 @@ func encounterHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-
 		nodes := make([]string, 0, len(encounteredNodes))
 		counts := make([]string, 0, len(encounteredNodes))
 
@@ -602,13 +994,10 @@ func encounterHandler(w http.ResponseWriter, r *http.Request) {
 			nodes = append(nodes, strconv.Itoa(int(en.Node)))
 			counts = append(counts, strconv.Itoa(en.Count))
 		}
-
-		data.ChosenExperiment = chosenExperiment
+		//data.ChosenExperiment = chosenExperiment
 		data.Nodes = strings.Join(nodes, ",")
 		data.Counts = strings.Join(counts, ",")
-
 	}
-
 	if err := tmpl.ExecuteTemplate(w, "encounters.html", data); err != nil {
 		log.Warnf("cannot execute template: %v", err)
 	}
@@ -634,9 +1023,55 @@ func reportsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func experimentConfigHandler(w http.ResponseWriter, r *http.Request) {
+
+	experiments, err := model.GetDatasetsAndExperiments()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	experimentNames := make([]string, 0, len(experiments))
+	for _, e := range experiments {
+		experimentNames = append(experimentNames, e.ExperimentName)
+	}
+
+	data := struct {
+		Experiments      []string
+		ChosenExperiment string
+		Config           model.ExperimentConfig
+	}{
+		Experiments: experimentNames,
+	}
+
+	chosenExperiment := r.URL.Query().Get("experiment")
+	if chosenExperiment != "" {
+
+		var config model.ExperimentConfig
+
+		if r := model.DB.Find(&config, "experiment_name=?", chosenExperiment); r.Error != nil {
+			log.Warnf("error when performing query: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		data.ChosenExperiment = chosenExperiment
+		data.Config = config
+	}
+
+	if err := tmpl.ExecuteTemplate(w, "experimentConfigs.html", data); err != nil {
+		log.Warnf("cannot execute template: %v", err)
+	}
+}
+
 // handles web requests.  add new functionality here via the `http.HandleFunc`
 // method
-func webService(webHost string, webPort int) {
+func webService(config *model.Config) {
+
+	// extract parameters from config
+	webHost := config.WebServer.Host
+	webPort := config.WebServer.Port
+
 	var err error
 	tmpl, err = template.ParseGlob("html/*.html")
 	if err != nil {
@@ -646,6 +1081,8 @@ func webService(webHost string, webPort int) {
 	http.HandleFunc("/profile", pprof.Profile)
 	http.HandleFunc("/status", statusHandler)
 	http.HandleFunc("/eventsByNode", numEventsByNodeHandler)
+	http.HandleFunc("/eventLocations", eventLocationsHandler)
+	http.HandleFunc("/encounterLocations", encounterLocationsHandler)
 	http.HandleFunc("/spansByNode", timeSpanByNodeHandler)
 	http.HandleFunc("/experimentsList", experimentsListHandler)
 	http.HandleFunc("/encounters", encounterHandler)
@@ -655,10 +1092,12 @@ func webService(webHost string, webPort int) {
 	http.HandleFunc("/messgagetimesnode", MessageTransfersPerTimeHandler)
 	http.HandleFunc("/deliveredmessagetimesnode", MessageDeliveringTimeHandler)
 	http.HandleFunc("/metricsboxes", MetricsBoxes)
+	http.HandleFunc("/deliveryRateChart", MessageDeliveringRateHandler)
+	http.HandleFunc("/deliveryratebyexperimentchart", DeliveryRateByExperimentHandler)
 	//http.HandleFunc("/deliveredmessagesbox", LatHopBox)
-
 	http.HandleFunc("/exit", exitHandler)
 	http.HandleFunc("/reports/", reportsHandler)
+	http.HandleFunc("/experimentConfigs", experimentConfigHandler)
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("html/static"))))
 	http.HandleFunc("/", reportsHandler)
 

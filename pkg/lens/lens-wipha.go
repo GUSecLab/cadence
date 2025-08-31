@@ -167,6 +167,7 @@ func (h *Wipha) Import(path string, datasetName string) error {
 		})
 	if err != nil {
 		h.log.Warn(err)
+		return err
 	}
 
 	return nil

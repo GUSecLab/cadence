@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
 	logger "github.com/sirupsen/logrus"
 )
 
@@ -61,6 +60,10 @@ type Message struct {
 	// sender
 	Sender model.NodeId `json:"sender"`
 
+	// new for DP update
+	//sender general address (e.g., district)
+	Source interface{} `json:"source"`
+
 	// message type
 	Type AddressType `json:"type"`
 
@@ -96,7 +99,7 @@ type Message struct {
 
 	//ttl values
 	TTLHops int `json:"ttl_hops"`
-	TTLSecs int `json:"ttl_secs"`
+	TTLTime int `json:"ttl_time"`
 	LatHops int `json:"lathops"`
 
 	//message size (in kb)
@@ -107,7 +110,7 @@ type Message struct {
 var DeliveredMessagesQueue *model.FastQueue
 
 func (m Message) String() string {
-	return fmt.Sprintf("[message] payload=%v id=%v type=%v from=%v to=%v created=%v path=%v shard=%v shardid=%v moreshards=%v fake=%v top_popular=%v least_popular=%v ttl_hops=%v ttl_secs=%v hops_passed=%v size=%v destinationNode=%v",
+	return fmt.Sprintf("[message] payload=%v id=%v type=%v from=%v to=%v created=%v path=%v shard=%v shardid=%v moreshards=%v fake=%v top_popular=%v least_popular=%v ttl_hops=%v ttl_secs=%v hops_passed=%v size=%v destinationNode=%v source=%v",
 		m.Payload,
 		m.MessageId,
 		addressTypeToString(m.Type),
@@ -122,10 +125,45 @@ func (m Message) String() string {
 		m.MPop,
 		m.LPop,
 		m.TTLHops,
-		m.TTLSecs,
+		m.TTLTime,
 		m.LatHops,
 		m.Size,
-		m.DestinationNode)
+		m.DestinationNode,
+		m.Source)
+}
+
+// Helper function to compare slices
+func comparePaths(slice1, slice2 []*messageHop) bool {
+	if len(slice1) != len(slice2) {
+		return false
+	}
+	for i := range slice1 {
+		if slice1[i] != slice2[i] {
+			return false
+		}
+	}
+	return true
+}
+func (m Message) Compare(m2 Message) bool {
+	return m.Payload == m2.Payload &&
+		m.MessageId == m2.MessageId &&
+		addressTypeToString(m.Type) == addressTypeToString(m2.Type) &&
+		m.Sender == m2.Sender &&
+		m.Destination == m2.Destination &&
+		m.CreationTime == m2.CreationTime &&
+		comparePaths(m.path, m2.path) &&
+		m.ShardsAvailable == m2.ShardsAvailable &&
+		m.ShardID == m2.ShardID &&
+		m.MShards == m2.MShards &&
+		m.FakeMessage == m2.FakeMessage &&
+		m.MPop == m2.MPop &&
+		m.LPop == m2.LPop &&
+		m.TTLHops == m2.TTLHops &&
+		m.TTLTime == m2.TTLTime &&
+		m.LatHops == m2.LatHops &&
+		m.Size == m2.Size &&
+		m.DestinationNode == m2.DestinationNode &&
+		m.Source == m2.Source
 }
 
 // this function checks if a message was delievered
@@ -140,6 +178,11 @@ func (m Message) MessageDelivered() {
 
 // get the destination of the message as a string
 func (m Message) GetDestinationString() string {
+
+	// new logic for DP update
+	return model.NodeIdString(m.DestinationNode)
+
+	/*
 	switch m.Destination.(type) {
 	case [3]float64:
 		des := m.Destination.([3]float64)
@@ -149,6 +192,7 @@ func (m Message) GetDestinationString() string {
 		return model.NodeIdString(m.Destination.(model.NodeId))
 	}
 	return ""
+	*/
 }
 
 // get a string that describes path of the message
@@ -179,10 +223,11 @@ func (m *Message) Copy() *Message {
 		MPop:            m.MPop,
 		LPop:            m.LPop,
 		TTLHops:         m.TTLHops,
-		TTLSecs:         m.TTLSecs,
+		TTLTime:         m.TTLTime,
 		Size:            m.Size,
 		LatHops:         m.LatHops,
 		DestinationNode: m.DestinationNode,
+		Source:		  	 m.Source,
 	}
 	for _, hop := range m.path {
 		newMessage.RecordHop(hop.prevNode, hop.time)
@@ -208,7 +253,7 @@ func LoadMessages(filename string, log *logger.Logger, logic Logic) (map[model.N
 		return nil, err
 	}
 	// the format of the JSON file is an array of Message objects (see `Message`
-	// above)
+	// above
 	var messages map[model.NodeId][]*Message
 	if err = json.Unmarshal(dat, &messages); err != nil {
 		log.Warn(err)
@@ -221,19 +266,37 @@ func LoadMessages(filename string, log *logger.Logger, logic Logic) (map[model.N
 			m.Destination = model.NodeId(m.DestinationNode)
 		}
 	}
-	// change the address if needed (addressing is in place)
+
+	/*
+	// modified logic for DP update
+
+	// change the address if needed (addressing/dp is in place)
 	// and also if attackers are in place
 	address_flag := false
+	// dp_flag := false
 	attacker_flag := false
 	if _, ok := logic.(*Adversary); ok {
 		attacker_flag = true
 		if _, ok := logic.(*Adversary).L.(*AddressingLogic); ok {
 			address_flag = true
 		}
+	} else {
+		if _, ok := logic.(*AddressingLogic); ok {
+			address_flag = true
+		} else {
+			if _, ok := logic.(*MirageLogic); ok {
+				// dp_flag = true
+			}
+		}
 	}
+	*/
+
+	address_flag := false
 	if _, ok := logic.(*AddressingLogic); ok {
 		address_flag = true
 	}
+
+	/*
 	//remove messages from and to attacker
 	if attacker_flag {
 		attackers := logic.(*Adversary).Adversaries
@@ -255,19 +318,73 @@ func LoadMessages(filename string, log *logger.Logger, logic Logic) (map[model.N
 			}
 		}
 	}
-	//if there is a need of changing the address, do it
+		*/
+	//if there is a need of changing the address for HumaNets, do it
 	if address_flag {
 		for _, node_messages := range messages {
-			for _, m := range node_messages {
+			for i, m := range node_messages {
 				//translate the desination node
 				//to a geolocation
 				pop, _ := Profilier.Popularity.Load(m.DestinationNode)
-				populars := pop.(NodesPopular)
-				mostP := populars.MostPopular[0]
-				m.Destination = mostP
+				pop_struct, ok := pop.(*LocPop)
+				if !ok {
+					node_messages[i] = nil
+					continue
+				}
+				m.Destination = pop_struct.Address
 			}
 		}
 	}
+
+	// updated logic for DP update
+
+	/*
+	//if there is a need of changing the address for DP, do it
+	if dp_flag {
+		tmp_messages := make(map[model.NodeId][]*Message, 0)
+		// check for the HumaNets-DP engine
+		dp_logic := logic.(*AddressingLogicDP)
+		mapping_nodes_regions := dp_logic.ReturnMapping()
+
+		for node, messages_per_node := range messages {
+			//skip the node if it does not have a district
+			regionSource, ok := mapping_nodes_regions[node]
+
+			if !ok {
+				continue
+			}
+			tmp_messages_list := make([]*Message, 0)
+			for _, m := range messages_per_node {
+				//get the destination node's district
+				regionDest, ok := mapping_nodes_regions[m.DestinationNode]
+				if !ok {
+					continue
+				}
+
+				m.Destination = regionDest.GetRandomLitBit() //trueDestDistrict
+				//update the source
+				m.Source = regionSource.GetRandomLitBit()
+				//if wormhole is active, split the message
+				//accordingly
+				if wormProt {
+					new_messes := LoadEncryptedMessage(*m)
+
+					tmp_messages_list = append(tmp_messages_list, new_messes...)
+
+				} else {
+					// save it in the tmp messages for this node
+					tmp_messages_list = append(tmp_messages_list, m)
+				}
+
+			}
+			//store the new messages
+			//with the districts as destinations
+			tmp_messages[node] = tmp_messages_list
+
+		}
+		messages = tmp_messages
+	}
+	*/
 
 	return messages, nil
 }
@@ -440,7 +557,7 @@ func ReassmbleMessage(mesmap *sync.Map, dm *model.DeliveredMessageDB, m *model.M
 		//m.TransferTime = delta_time
 		//m.Payload = payload
 
-		//messageDBChan <- m                             // send the reassmebled message to document channel
+		messageDBChan <- m                             // send the reassmebled message to document channel
 		receivedmessageDBChan <- dm                    // send the reassembled message to delivered message channel
 		mesmap.Store(newMessage.MessageId, newMessage) //store the assembled message
 		return                                         //we reassembled, no more actions needed

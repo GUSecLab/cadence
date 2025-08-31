@@ -92,11 +92,18 @@ func (c *Cabspotting) processFile(path, datasetName string) error {
 			return err
 		}
 		ecefCoord := latlong.ConvertToCoord()
+		marshalledLocation, err := latlong.Marshall()
+		if err != nil {
+			// this should not happen, but just in case
+			c.log.Warnf("failed to marshall latlong: %v, %v", latlong, err)
+			continue
+		}
+
 		e := model.Event{
 			DatasetName:        datasetName,
 			Time:               t,
 			Node:               nodeId,
-			MarshalledLocation: nil,
+			MarshalledLocation: marshalledLocation,
 			X:                  ecefCoord.X,
 			Y:                  ecefCoord.Y,
 			Z:                  ecefCoord.Z,
@@ -155,6 +162,7 @@ func (c *Cabspotting) Import(path string, datasetName string) error {
 		})
 	if err != nil {
 		c.log.Warn(err)
+		return err
 	}
 
 	return nil

@@ -1,0 +1,37 @@
+{
+    "top_level": {
+        "log": "DEBUG",
+        "db": "sqlite",
+        "dbfile": "db/japan.db",
+        "time_format": "2006-01-02 15:04:05.000",
+        "seed": 12345
+    },
+    "web_server": {
+        "port": 8080,
+        "host": "localhost"
+    },
+    "simulation": {
+        "start_time": 1704067200,
+        "end_time": 1710545400,
+        "dataset_name": "japan",
+        "experiment_name": "japan - randomwalk-v1 buffer=500 run=1",
+        "conditions_file": "cmd/cadence/conditions_japan.json",
+        "logic": "randomwalk-v1",
+        "logic_file": "pkg/logic/logic_configs/NDSS/logic_config_japan_randomwalk-v1.json",
+        "messages_file": "message_files/messages_japan_type_3.json",
+        "messages_template": "cmd/cadence/messages_template.json",
+        "message_generation_type": 3,
+        "min_buffer_size": 500,
+        "max_buffer_size": 500,
+        "min_message_size": 1.0,
+        "max_message_size": 1.0,
+        "time_step": 60.0,
+        "encounter_isolator": 60.0,
+        "N_encounters_split": 2
+    },
+    "cli": {
+        "lens": "japan",
+        "path": "marathon-mobility-data/japan/data/dataset_mini",
+        "name": "japan"
+    }
+}

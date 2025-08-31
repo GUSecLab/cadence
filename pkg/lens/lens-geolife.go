@@ -178,6 +178,7 @@ func (geolife *Geolife) Import(path string, datasetName string) error {
 		})
 	if err != nil {
 		geolife.log.Warn(err)
+		return err
 	}
 
 	return nil

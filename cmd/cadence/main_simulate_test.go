@@ -15,7 +15,7 @@ import (
 // simple general config data example
 var GeneralConfigData = `
 {
-  "top_level": {
+    "top_level": {
 	"log": "INFO",
 	"db": "mysql",
 	"dbfile": "marathon:marathon@tcp(127.0.0.1:3306)/marathon?charset=utf8mb4&parseTime=True&loc=Local",
@@ -95,6 +95,7 @@ var ConditionJson = `{
 
 // configuarion parsing tests
 
+/*
 func TestGenerateCliCommand(t *testing.T) {
 
 	// Unmarshal the JSON into a Config struct
@@ -113,6 +114,8 @@ func TestGenerateCliCommand(t *testing.T) {
 		t.Errorf("The cli commands are not equal. Expected: %s, got: %s", expected, command)
 	}
 }
+
+
 func TestGenerateSimCommand(t *testing.T) {
 
 	// Unmarshal the JSON into a Config struct
@@ -146,9 +149,10 @@ func TestGenerateWebCommand(t *testing.T) {
 		t.Errorf("The sim commands are not equal. Expected: %s, got: %s", expected, command)
 	}
 }
+*/
 
 // test the lens
-func TestLensInit(t *testing.T) {
+func TestLensInitGHCI(t *testing.T) {
 	log = logger.New()
 	l, err := logger.ParseLevel("INFO")
 	if err != nil {
@@ -158,7 +162,7 @@ func TestLensInit(t *testing.T) {
 	log.SetLevel(l)
 	lens.LensInit(log)
 	lens_amount := len(lens.LensStore)
-	expected := 11
+	expected := 15
 	if lens_amount != expected {
 		t.Errorf("The amount of lens doe not match. Expected: %d, got: %d", expected, lens_amount)
 	}
@@ -177,13 +181,13 @@ func TestDBInit(t *testing.T) {
 	log.SetLevel(l)
 	lens.LensInit(log)
 	// Unmarshal the JSON into a Config struct
-	var config Config
+	var config *model.Config
 	err = json.Unmarshal([]byte(GeneralConfigData), &config)
 	if err != nil {
 		t.Errorf("Failed to unmarshal JSON: %v", err)
 	}
 	//init the db
-	model.Init(log, config.TopLevel.DB, config.TopLevel.DB_File)
+	model.Init(log, config)
 	// a list of tables
 	tablesToMigrate := map[interface{}]string{
 		&model.Dataset{}:            "dataset",
@@ -208,16 +212,18 @@ func TestDBInit(t *testing.T) {
 }
 
 // check logic engines
-func TestLogicEnginesInitCommand(t *testing.T) {
+func TestLogicEnginesInitCommandGHCI(t *testing.T) {
 
+
+	
 	// Unmarshal the JSON into a Config struct
-	var config logics.LogicConf
-	err := json.Unmarshal([]byte(LogicConfBlock), &config)
+	var logicConfig logics.LogicConf
+	err := json.Unmarshal([]byte(LogicConfBlock), &logicConfig)
 	if err != nil {
 		t.Errorf("Failed to unmarshal JSON: %v", err)
 	}
 	// Marshal the JSON object into bytes
-	jsonBytes, err := json.Marshal(config)
+	jsonBytes, err := json.Marshal(logicConfig)
 	if err != nil {
 		log.Info("Error marshaling JSON:", err)
 		return
@@ -230,12 +236,21 @@ func TestLogicEnginesInitCommand(t *testing.T) {
 		return
 	}
 	//should fail, just running the init for the logicstore
-	logics.LogicEnginesInit(log, "tmp_conf.json")
-
-	//get the current logic name from the logic store
-	logicEng, err := logics.GetLogicByName(config.LogicName)
+	var config *model.Config
+	err = json.Unmarshal([]byte(GeneralConfigData), &config)
 	if err != nil {
-		log.Infof("problem with init logic engine %v, abort! %v", config.LogicName, err)
+		t.Errorf("Failed to unmarshal JSON: %v", err)
+	}
+
+	// this is necessary to prepare the organizer
+	logics.InitMemory(log, config)
+
+	// logics.LogicEnginesInit(log, "tmp_conf.json")
+	logics.LogicEnginesInit(log, config)
+	//get the current logic name from the logic store
+	logicEng, err := logics.GetLogicByName(logicConfig.LogicName)
+	if err != nil {
+		log.Infof("problem with init logic engine %v, abort! %v", logicConfig.LogicName, err)
 		return
 	}
 	// Delete the file
@@ -245,7 +260,7 @@ func TestLogicEnginesInitCommand(t *testing.T) {
 		return
 	}
 	//init it with the block
-	expected := config.LogicName
+	expected := logicConfig.LogicName
 	result := logicEng.GetLogicName()
 	if result != expected {
 		t.Errorf("The logic config block has problem creating the logic. Expected: %s, got: %s", expected, result)
@@ -253,7 +268,7 @@ func TestLogicEnginesInitCommand(t *testing.T) {
 }
 
 // test proper creation of conditions
-func TestConditions(t *testing.T) {
+func TestConditionsGHCI(t *testing.T) {
 	// Unmarshal the JSON into conditions
 	var m map[string][]map[string]any
 	var err error

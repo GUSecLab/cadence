@@ -6,18 +6,18 @@
 <h3>Encounters by Node</h3>
 
 <ul>
-{{ range .Experiments }}
-<li><a href="/encounters?experiment={{ . }}">{{ . }}</a></li>
+{{ range .Datasets }}
+<li><a href="/encounters?dataset={{ . }}">{{ . }}</a></li>
 {{end}}
 </ul>
 
-{{ if .ChosenExperiment }}
+{{ if .ChosenDataset }}
 
 <h3>Encounters by Node</h3>
 <div>
     <canvas id="encountersByNodeChart"></canvas>
 </div>
-  
+<button onclick="downloadGraph()">Download Graph</button>
   
 <script>
   const ctx = document.getElementById('encountersByNodeChart');
@@ -27,7 +27,7 @@
     data: {
       labels: [ {{ .Nodes }} ],
       datasets: [{
-        label: '{{ .ChosenExperiment }}',
+        label: '{{ .ChosenDataset }}',
         data: [ {{ .Counts }} ],
         borderWidth: 1
       }]
@@ -53,6 +53,13 @@
       }
     }
   });
+  function downloadGraph() {
+        const link = document.createElement('a');
+        link.href = document.getElementById('encountersByNodeChart').toDataURL('image/png'); // Use toDataURL instead of toBase64Image
+        link.download = 'encountersByNodeChart.png';
+        link.click();
+  }
+
 </script>
 
 {{ end }}

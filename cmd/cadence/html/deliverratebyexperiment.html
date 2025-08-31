@@ -1,0 +1,39 @@
+{{template "header"}}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+<h3>Delivery Rate By Experiment</h3>
+
+<h3>Select an Experiment</h3>
+
+<h3>
+    
+    <form method="GET" action="/deliveryratebyexperimentchart">
+        <label for="experiment">Choose an experiment:</label>
+        <select name="experiment" id="experiment">
+            {{ range .Experiments }}
+            <option value="{{ . }}">{{ . }}</option>
+            {{ end }}
+        </select>
+        <button type="submit">Submit</button>
+    </form>
+</h3>
+{{ if .ChosenExperiment }}
+
+<h3>Delivery Rate By Experiment</h3>
+
+<div>
+    <p>Experiment: {{ .ChosenExperiment }}</p>
+    <p>Delivery Rate: {{ .DeliverRate }}%</p>
+    <p>Number of Messages Delivered: {{ .DeliveredMsg }}</p>
+</div>
+
+<script>
+  const ctx = document.getElementById('deliveryratebyexperimentchart');
+
+</script>
+
+{{ end }}
+
+{{template "footer"}}

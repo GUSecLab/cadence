@@ -1,0 +1,15 @@
+{{template "header"}}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+<h3>Available datasets</h3>
+
+<ul>
+{{ range . }}
+<li><a href="/encounterLocations?dataset={{ .DatasetName }}&distance={{ .Distance }}" target="{{ .DatasetName }}">{{ .DatasetName }}</a> (distance={{ .Distance }})</li>
+{{end}}
+</ul>
+
+
+{{template "footer"}}

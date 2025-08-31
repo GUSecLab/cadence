@@ -33,17 +33,21 @@ func LensInit(log *logger.Logger) {
 	LensStore = make(map[string]Lens)
 
 	// populate the LensStore with all of the available lenses
-	LensStore["randomWalk"] = &RandomWalk{}
-	LensStore["geolife"] = &Geolife{}
-	LensStore["cabspotting"] = &Cabspotting{}
-	LensStore["hamburg"] = &Hamburg{}
+	// LensStore["randomWalk"] = &RandomWalk{}
+	// LensStore["geolife"] = &Geolife{}
+	// LensStore["cabspotting"] = &Cabspotting{}
+	// LensStore["hamburg"] = &Hamburg{}
 	LensStore["tdrive"] = &TDrive{}
-	LensStore["wipha"] = &Wipha{}
-	LensStore["kalmaegi"] = &Kalmaegi{}
-	LensStore["rammasun"] = &Rammasun{}
-	LensStore["halong"] = &Halong{}
-	LensStore["napa"] = &Napa{}
-	LensStore["mdc"] = &MDC{}
+	// LensStore["wipha"] = &Wipha{}
+	// LensStore["kalmaegi"] = &Kalmaegi{}
+	// LensStore["rammasun"] = &Rammasun{}
+	// LensStore["halong"] = &Halong{}
+	// LensStore["napa"] = &Napa{}
+	// LensStore["mdc"] = &MDC{}
+	// LensStore["simple"] = &SimpleDatasetFormat{}
+	LensStore["japan"] = &Japan{}
+	// LensStore["cabspotting2D"] = &Cabspotting2D{}
+	// LensStore["geolife2D"] = &Geolife2D{}
 
 	// initialize each lens
 	for name, l := range LensStore {
@@ -68,7 +72,14 @@ func PrintLenses() {
 }
 
 // dispatches the appropriate lens
-func Import(lensName, path, dataSetName string) error {
+func Import(config *model.Config) error {
+
+	// extract the lens name, path, and dataset name from the config
+	lensName := config.CLI.Lens
+	path := config.CLI.Path
+	dataSetName := config.CLI.Name
+
+
 	l, ok := LensStore[lensName]
 	if !ok {
 		s := fmt.Sprintf("invalid lens name; valid lens names are [%v]", GetInstalledLenses())
@@ -81,15 +92,17 @@ func Import(lensName, path, dataSetName string) error {
 		CoordType:      l.GetLocationType(),
 		CompleteImport: false,
 	}
-	// add record to DB
-	if r := model.DB.Save(&ds); r.Error != nil {
-		return r.Error
-	}
 
 	// do the import
 	if err := l.Import(path, dataSetName); err != nil {
 		return err
 	}
+	
+	// add record to DB (if import succeeds)
+	if r := model.DB.Save(&ds); r.Error != nil {
+		return r.Error
+	}
+
 	fmt.Println("Succeeded in importing ", dataSetName)
 	// update the time
 	ds.DateImported.Time = time.Now()
