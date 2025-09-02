@@ -1,166 +1,247 @@
-# The Cadence simulator
+# Artifact - The Cadence Simulator 
 
-**to reproduce NDSS 2026 results, see [NDSS_README.md](NDSS_README.md).**
+This repository contains the Cadence Simulator, the artifact for our paper "Mirage: Private, Mobility-based Routing for Censorship Evasion" published at NDSS 2026.  
 
-Authors: Ruoxing Yang, Harel Berger, Micah Sherr, Adam Aviv
+The artifact is citable via the following DOI: [10.5281/zenodo.16953762](https://doi.org/10.5281/zenodo.16953762).
 
-## Components
+The Cadence Simulator provides a framework to test decentralized message passing algorithms on mobility datasets. For additional info, see [CADENCE.md](CADENCE.md).
 
-The major components of Cadence are:
+# Structure 
 
-* The Cadence simulator
-* The backend database (currently mysql and sqlite3 are supported, with mysql
-  being the recommended backend).
-* A number of human mobility datasets. 
+- `cmd/cadence/` contains source code for the Cadence Simulator.
+- `cmd/cadence/configs/` contains experiment configuration files.
+- `docs/` contains additional documentation.
+- `imgs/` contains media used for documentation.
+- `marathon-mobility-data/` contains datasets used for Cadence simulations. 
+- `message_files/` contains message files used for Cadence simulations. 
+- `pkg/` contains additional source code for the Cadence Simulator. 
+- `pkg/logic/logic_configs/` contains additional experiment configuration files
+- `scripts/` contains python scripts to automate simulations. 
+- `tools/` contains optional utilities such as sql scripts. 
+- `tufte-css/` contains utilities for the Cadence web application interface. 
+- `Dockerfile` contains docker commands
+- `CADENCE.md` contains a general description of the Cadence Simulator. 
+- `README.md` is this document, contains NDSS specific instructions for the Cadence Simulator. 
+- `LICENSE` contains the license. 
 
-## Usage
+- additionally, the scripts will generate four new directories:
+- `db` stores the db files
+- `results` stores simulation results
+- `results/raw-data` stores raw data from simulation experiments in csv format
+- `results/plots` stores plots generated from raw data
 
-Cadence can either be run manually or with python automation scripts. To run Cadence manually, follow the steps listed below in this document. To run Cadence using automation scripts (recommended), refer to the NDSS-specific documentation [NDSS_README.md](NDSS_README.md).
+NOTE: if the scripts fail to generate db, results, results/raw-data, or results/plots directories, please create them manually to ensure successful execution!
 
-## Getting ready to use Cadence
+# EXPERIMENT INSTRUCTIONS FOR NDSS 2026
 
-Follow these steps to obtain and compile cadence. 
+All instructions assume a Linux operating system environment, although they should work on most systems since we are operating in a python virtual environment. 
 
-### Prerequisites
+Strongly recommend setting up a fresh virtual machine with Linux Ubuntu 24.04.2 LTS to ensure smooth operation. The scripts were run and tested on an Ubuntu 24.04.2 system with 8 GB ram and 25 GB disk space. 
 
-* Install Go.
+*This repository has been dockerized - scroll to the end of this document for alternate docker instructions*
 
-* Install [git-lfs](https://git-lfs.com/).
+## setting up a virtual environment 
 
-### Obtaining and compiling
+to ensure smooth execution, please set up a python virtual environment. 
 
-To compile, do:
-
-```
-cd cmd/cadence  # or marathon-sim/cmd/cadence depending on where you are
-go build
-```
-
-You should now have a program, `cadence`.  Tada!
-
-
-## Running Cadence
-
-Cadence imports data using a command line interface and displays as a web application. Configuration parameters are conveyed in the form of a json file.
-
-**For details on configuration, please consult [CONFILES.md](docs/CONFILES.md).**
-
-**For specific instructions on Mirage experiments, see [MIRAGE_INSTRUCTIONS.md](MIRAGE_INSTRUCTIONS.md).**
-
-Cadence has four modes of operation. For each, replace config_file_path with the correct path to the json config file.
-
-1. web - runs a web application that outputs experiment results
+(make sure python3 and pip are installed)
 
 ```
-./cadence web config_file_path
+$ sudo apt update
+$ sudo apt install python3 python3-pip
+$ sudo apt install python3.12-venv
 ```
 
-2. sim - runs a simulation experiment on the dataset and lens
+create a virtual environment and activate it
 
 ```
-./cadence sim config_file_path
+$ python3 -m venv venv
+$ source venv/bin/activate
 ```
 
-3. import - imports a new dataset
+## Running the simulator 
+
+There are two ways to run the simulator:
+
+1. run this do-everything script, which will automate the entire process 
+2. run each step one after the other, starting at step 1: setup. 
+
+## do-everything script
+
+This do-everything script simply runs each of the step scripts one after the other. It is recommended to run each step individually, in case any step creates problems, but the do-everything script should be able to automate all steps. 
+
+This script will generate raw data and plots and store them in results/raw-data and results/plots respectively.
 
 ```
-./cadence import config_file_path
+$ python3 scripts/run_all.py
 ```
 
-4. list - lists lenses
+* Note: if the do-everything script executes successfully, you do not need to run the following steps, as they have already been executed by the do-everything script!
 
-```
-./cadence list config_file_path
-```
+## Step 1: setup 
 
-5. report - generate pdf report for the experiments
-```
-./cadence report config_file_path
-```
+To run cadence, you need the following things:
 
-If no configuration file is passed in, cadence will run using the default configuration. 
+1. cadence executable (step 2)
+2. golang
+3. sqlite3
+4. LaTex Packages (texlive)
+5. various python modules for plotting (requirements.txt)
 
-  
-### Importing a human mobility dataset
+You can choose to install and setup these items yourself. Most of these should already be set up on most systems. You may also use this script to automate the process.
 
-The `cadence import` command is used to import an external human movement
-dataset into the database backend.  This should be done exactly once per
-dataset.  Since Cadence simulations use imported human mobility data (as opposed
-to opening external files), you must import the data before running simulations
-on it. To run the import, you should fill the correct parameters in the TopLevel and cli parts of the general config file.
-
-In Cadence parlance, a *lens* is a module (see [/pkg/lens](/pkg/lens)) that
-imports a human mobility dataset.  Each dataset format uses a different lens.
-There's a 1:1 mapping between the two.  (Consequently, supporting additional
-dataset formats requires adding a new lens to Cadence.)
-
-You can list the currently supported lenses via `./cadence list`.  This
-currently yields:
-
-```
-tdrive
-japan
+``` 
+$ python3 scripts/run_setup.py
 ```
 
-### Running a simulation
+* Note: If go is not detected, the script will install go at /usr/local. If this is unacceptable, please install go manually and do not use the script. 
+* Note: If sqlite3 is undetected, the script will install sqlite3 using the apt package manager. 
+* Note: If LaTex packages are missing, the script will install using the apt package manager. 
+* Note: You may have to add the path to the go installation manually to the path variable. 
 
-Before running a simulation, you need to import the human mobility dataset on which you'd like to run a HumaNet routing protocol.  (See above.)  This import needs to happen just once per dataset.
+```
+$ export PATH=$PATH:/usr/local/go/bin
+```
 
-Cadence simulations are run using the `sim` option to Cadence.  `cadence sim config_file.json` 
-The full command is passed by a JSON config file, so one should not need to write the full command manually. 
+## Step 2: build the simulator 
 
-For more information on simulations, visit [OVERVIEW.md](docs/OVERVIEW.md).
+This script will build the cadence executable 
 
-## Graphing
+```
+$ python3 scripts/run_build.py
+```
 
-When run with the `./cadence web config_file.json` command, Cadence runs a web server which is able to run reports and generate graphs. The top level and web parts of the general config file are used to utilize the web server.
+## Step 3: import datasets 
 
-Pointing your web browser at the specified host and port (by default [http://localhost:8080](http://localhost:8080)), will yield the Cadence web interface.
+This script will set up two sqlite databases and import the japan and tdrive datasets respectively. 
 
-<img src="imgs/1.png" width="50%">
+```
+$ python3 scripts/run_import.py
+```
 
-Cadence can provide some basic status information by clicking the "Status" link at the top of the page:
+You may optionally choose to run the imports in parrallel using this version of the script
 
-<img src="imgs/2.png" width="50%">
+```
+$ python3 scripts/run_import_parrallel.py
+```
 
-Cadence offers a number of reports that can be run.  These can be found by clicking the "Reports" link at the top of the page:
+## Step 4: run experiments 
 
-<img src="imgs/3.png" width="50%">
+This script will run all relevant experiments and export the raw csv experiment results into results/raw-data
 
-Currently implemented reports include listing number of events of each node...
+This step may take a few hours ... 
 
-<img src="imgs/4.png" width="50%">
+```
+$ python3 scripts/run_experiments_parrallel.py
+```
 
-...and a report that lists the number of encounters per node:
+## Step 5: generate plots 
 
-<img src="imgs/5.png" width="50%">
+This script will generate plots from the exported data, as well as export extra data for timely plots. 
 
-... and an interactive box & whiskers graph on different metrics (only on finished experiments), such as throughput, network load, latency, etc.
+```
+$ python3 scripts/run_plots.py
+```
 
-<img src="imgs/box_whiskers.png" width="80%">
+## Reset 
 
-## Other Documentation
+This script will reset the environment by
+1. deleting the databases 
+2. deleting raw data 
+3. deleting plots 
+4. deleting old message files
+5. deleting old executable 
 
-For more information on Cadence, see further documentation in the /docs directory:
+```
+$ python3 scripts/run_reset.py
+```
 
-* Configuration - [CONFILES.md](docs/CONFILES.md).
-* Logic API Interface - [LOGICAPI.md](docs/LOGICAPI.md).
-* Routing Logics - [LOGICS.md](docs/LOGICS.md).
-* Simulation Overview - [OVERVIEW.md](docs/OVERVIEW.md).
-* Memory Profiling - [PROFILING.md](docs/PROFILING.md).
-* Messages - [MESSAGES.md](docs/MESSAGES.md).
+## Notes
 
-## Glossary
+* to run custom experiments, refer to README.md and documentation in docs directory for instructions 
+* to utilize scripts to run custom p and k parameter combinations, buffer size choices, and message generation options, modify the scripts/parameters.py file 
+* experiment names must be unique. to rerun an experiment, either delete the record of the old experiment from all tables, or create a new unique experiment name. 
 
-* **experiment**: an execution of a simulation
+### Re-running experiments efficiently without reimporting datasets and re-preparing data 
 
-* **encounter**: an event in which two nodes meet the necessary criteria (i.e., encounter conditions) to exchange messages
+To rerun experiments with different configuration parameters efficiently without completely deleting the database files, follow these steps: 
 
-* **encounter condition**: a predicate that determines whether two nodes at a given moment in time are considered to have encountered one another
+1. clear DBs and results directory while preserving events, encounters, and encounter enumerations tables. 
 
-* **node**: a principal in a human movement dataset.  Nodes represent smartphones participating in the MARATHON system.
+this will clear all experiment records to avoid duplicate experiment name issues. 
 
-* **nodeID**: a unique identifier for a node; an integer.
+```
+$ python3 scripts/run_clear_dbs.py
+```
+
+this will clear the results folder (but keep the directory structure)
+
+```
+$ python3 scripts/run_clear_results.py
+```
+
+Experiment records and results directories must be cleared before rerunning experiments. 
+
+2. modify parameters as necessary. 
+
+to modify p and k value combinations, buffer size choices, and message generation types, see scripts/parameters.py.
+
+other configuration parameters can be modified via cmd/cadence/configs/NDSS and pkg/logic/logic_configs/NDSS
+
+3. rerun experiments 
+
+```
+$ python3 scripts/run_experiments_parrallel.py
+```
+
+4. generate plots 
+
+```
+$ python3 scripts/run_plots.py
+```
+
+Note: for docker, rerunning experiments with new parameters requires rebuilding the container. 
+
+### plot reference 
+
+plots are named based on this convention:
+
+METRIC_K-VALUE_DATASET.pdf
+
+METRICS:
+
+al - message load (average number of messages in the network per time frame)
+custom - message load efficiency: delivery rate / average load
+custom2 - delivery efficiency: delivery rate / network load
+dr - delivery rate 
+lat - message delivery latency (time in days)
+nl - network load (sum of all bandwidths (messages transferred in an encounter))
+
+(plotting scripts also produce some extra plots not used in the paper)
+
+## Docker ##
+
+Instructions to run the simulation using docker. 
+
+1. Make sure you are in the top-level directory of this repository.
+
+2. Build. This will setup the environment, build the simulator, and import the datasets. 
+
+```
+docker build -t mirage-artifact .
+```
+
+3. Create a place to store results 
+
+```
+mkdir /tmp/place-to-store-results
+```
+
+4. Run the main command. Make sure you use the `-v` option to specify an accessible location for results. 
+
+```
+docker run -v /home/user/place-to-store-results:/app/results mirage-artifact
+```
 
 ## Reference Papers: 
 
@@ -183,4 +264,3 @@ Please cite these papers when using the simulator.
   month = feb,
   note = {To appear.}
 }
-
